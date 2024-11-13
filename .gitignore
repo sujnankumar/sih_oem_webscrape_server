@@ -1,0 +1,5 @@
+/__pycache__/
+/migrations
+/test
+/app/__pycache__/
+/venv/
