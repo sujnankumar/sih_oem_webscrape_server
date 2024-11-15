@@ -15,7 +15,7 @@ def register_blueprints(app):
 def send_email_to_subscribers(subject, message_body):
     from .models import Subscriber  
     subscribers = Subscriber.query.all()
-    print(subscribers)
+    print(list(subscribers))
 
     with mail.connect() as conn:
         for subscriber in subscribers:
@@ -102,7 +102,7 @@ def dashboard():
 
 @bp.route('/insert_scraped_data', methods=['POST'])
 def insert_scraped_data():
-    from .models import OEMData  # Import the OEMData model inside the function
+    from .models import Vulnerabilities  # Import the Vulnerabilities model inside the function
     data = request.get_json()
 
     # Extract the required fields
@@ -119,8 +119,8 @@ def insert_scraped_data():
     if not all([product_name, oem_name, severity_level, vulnerability, mitigation_strategy, unique_id]):
         return jsonify({'message': 'Missing required fields'}), 400
 
-    # Create a new OEMData record
-    new_entry = OEMData(
+    # Create a new Vulnerabilities record
+    new_entry = Vulnerabilities(
         product_name=product_name,
         product_version=product_version,
         oem_name=oem_name,
@@ -132,29 +132,8 @@ def insert_scraped_data():
         scraped_date=scraped_date
     )
 
-    # db.session.add(new_entry)
-    # db.session.commit()
-
-
-
-    # Send email notifications to subscribers
-    subject = f"New Vulnerability Found for {product_name}"
-    message_body = f"""
-    A new vulnerability has been scraped:
-    
-    Product Name: {product_name}
-    Version: {product_version}
-    OEM: {oem_name}
-    Severity Level: {severity_level}
-    Vulnerability: {vulnerability}
-    Mitigation Strategy: {mitigation_strategy}
-    Published Date: {published_date.strftime('%B %Y')}
-    
-    Please take appropriate action!
-    """
-    send_email_to_subscribers(subject, message_body)
-
-
+    db.session.add(new_entry)
+    db.session.commit()
 
     return jsonify({'message': 'Data inserted successfully!'}), 201
 
@@ -162,10 +141,10 @@ def insert_scraped_data():
 @bp.route('/get_scraped_data', methods=['GET'])
 @jwt_required()
 def get_scraped_data():
-    from .models import OEMData  # Import the OEMData model inside the function
+    from .models import Vulnerabilities # Import the Vulnerabilities model inside the function
 
-    # Retrieve all entries from the OEMData table
-    scraped_data = OEMData.query.all()
+    # Retrieve all entries from the Vulnerabilities table
+    scraped_data = Vulnerabilities.query.all()
 
     # Serialize the data to JSON
     data_list = [
@@ -187,10 +166,10 @@ def get_scraped_data():
 
 @bp.route('/search', methods=['POST'])
 def search():
-    from .models import OEMData
+    from .models import Vulnerabilities
 
     product_name = request.form.get('product_name').lower()
-    vulnerabilities = OEMData.query.filter(OEMData.product_name.ilike(f'%{product_name}%')).all()
+    vulnerabilities = Vulnerabilities.query.filter(Vulnerabilities.product_name.ilike(f'%{product_name}%')).all()
 
     results = [
         {
@@ -209,14 +188,92 @@ def search():
 
 @bp.route('/suggestions', methods=['GET'])
 def suggestions():
-    from .models import OEMData
+    from .models import Vulnerabilities
     search_term = request.args.get('term', '').lower()  # Get the term for suggestions
 
     # Check if the search term has at least 2 letters
     if len(search_term) < 2:
         return jsonify([])  # Return an empty list if the term is less than 2 characters
 
-    products = OEMData.query.with_entities(OEMData.product_name).all()
+    products = Vulnerabilities.query.with_entities(Vulnerabilities.product_name).all()
     # Filter products that contain the search term (case-insensitive)
     filtered_products = [product[0] for product in products if search_term in product[0].lower()]
     return jsonify(filtered_products)
+
+@bp.route('/send_alerts', methods=['POST'])
+def send_alerts():
+    from .models import Alert, User, Vulnerabilities  # Import the necessary models inside the function
+
+    data = request.get_json()
+    vulnerability_id = data.get('vulnerability_id')
+
+    if not vulnerability_id:
+        return jsonify({'message': 'Missing vulnerability ID'}), 400
+
+    # Retrieve the vulnerability details
+    vulnerability = Vulnerabilities.query.get(vulnerability_id)
+    if not vulnerability:
+        return jsonify({'message': 'Vulnerability not found'}), 404
+
+    # Retrieve all users
+    users = User.query.all()
+
+    for user in users:
+        # Create an alert for each user
+        new_alert = Alert(vulnerability_id=vulnerability_id, user_id=user.id)
+        db.session.add(new_alert)
+        db.session.commit()
+
+        # Send email to the user
+        subject = f"New Vulnerability Alert: {vulnerability.product_name}"
+        message_body = f"""
+        Dear {user.username},
+
+        A new vulnerability has been identified:
+
+        Product Name: {vulnerability.product_name}
+        Version: {vulnerability.product_version}
+        OEM: {vulnerability.oem_name}
+        Severity Level: {vulnerability.severity_level}
+        Vulnerability: {vulnerability.vulnerability}
+        Mitigation Strategy: {vulnerability.mitigation_strategy}
+        Published Date: {vulnerability.published_date.strftime('%B %Y')}
+
+        Please take appropriate action!
+
+        Best regards,
+        Your Security Team
+        """
+        try:
+            msg = Message(subject=subject, recipients=[user.email], body=message_body)
+            mail.send(msg)
+            new_alert.status = 'Sent'
+        except Exception as e:
+            new_alert.status = 'Failed'
+            print(f"Failed to send email to {user.email}: {e}")
+
+        db.session.commit()
+
+    return jsonify({'message': 'Alerts processed successfully!'}), 200
+
+@bp.route('/add_website', methods=['POST'])
+def add_website():
+    from .models import OEMWebsite 
+
+    data = request.get_json()
+    oem_name = data.get('oem_name')
+    website_url = data.get('website_url')
+
+    if not oem_name or not website_url:
+        return jsonify({'message': 'Missing required fields'}), 400
+
+    # Check if the website already exists
+    if OEMWebsite.query.filter_by(website_url=website_url).first():
+        return jsonify({"error": "Website already exists"}), 400
+
+    # Create a new OEMWebsite record
+    new_website = OEMWebsite(oem_name=oem_name, website_url=website_url)
+    db.session.add(new_website)
+    db.session.commit()
+
+    return jsonify({'message': 'Website added successfully!'}), 201
