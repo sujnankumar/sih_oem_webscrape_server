@@ -2,7 +2,7 @@
 /migrations
 /test
 /app/__pycache__/
-/app/instace/
+/app/instance/
 /venv/
 /app/scrape/__pycache__/
 /app/scrape/tempCodeRunnerFile.py
