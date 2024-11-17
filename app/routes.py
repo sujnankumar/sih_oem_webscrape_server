@@ -69,9 +69,22 @@ def login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
+    otp = data.get('otp')
 
     if not email or not password:
         return jsonify({"error": "Missing required fields"}), 400
+    
+    stored_otp = User.query.filter_by(email=email).first().otp
+    stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
+
+    if not stored_otp or not stored_otp_generated_at:
+        return jsonify({"error": "OTP not generated"}), 400
+    
+    if (datetime.now() - stored_otp_generated_at).seconds > 600:
+        return jsonify({"error": "OTP expired"}), 401
+
+    if stored_otp != otp:
+        return jsonify({"error": "Invalid OTP"}), 401
 
     user = User.query.filter_by(email=email).first()
     
@@ -89,10 +102,40 @@ def login():
 
     return jsonify({'message': 'Invalid email or password'}), 401
 
+@bp.route('/get_otp', methods=['POST'])
+def get_otp():
+    from .models import User  # Import User inside the function
+    import random
+
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({"error": "Missing email field"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"error": "Email not found"}), 404
+
+    # Generate a random 6-digit OTP
+    otp = random.randint(100000, 999999)
+
+    # Save the OTP to the user's record (assuming there's a field for it)
+    user.otp = otp
+    user.otp_generated_at = datetime.now()
+    db.session.commit()
+
+    subject = "Your OTP Code for Login on Vulnerability Tracker"
+    message_body = f"\nYour OTP code is {otp}.\n It is valid for 10 minutes.\nDo not share this with anyone!"
+    msg = Message(subject=subject, recipients=[email], body=message_body)
+    mail.send(msg)
+
+    return jsonify({"message": "OTP sent successfully"}), 200
+
 @bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    # For JWT, logout can be handled on the client-side by discarding the token
     return jsonify({'message': 'Successfully logged out'}), 200
 
 @api.route('/dashboard', methods=['GET'])

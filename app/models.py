@@ -8,6 +8,8 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
+    otp = db.Column(db.String(6), nullable=True)
+    otp_generated_at = db.Column(db.DateTime, nullable=True)
     
     # Fields for user interest areas
     interested_in_critical = db.Column(db.Boolean, default=True, nullable=False)
