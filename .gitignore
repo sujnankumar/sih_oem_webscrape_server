@@ -3,3 +3,6 @@
 /test
 /app/__pycache__/
 /venv/
+/app/scrape/__pycache__/
+/app/scrape/tempCodeRunnerFile.py
+/app/scrape/try.py
