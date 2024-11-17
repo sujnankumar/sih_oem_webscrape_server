@@ -54,7 +54,8 @@ class Vulnerabilities(db.Model):
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    
+    base_scrore = db.Column(db.Float, nullable=True)
+    temporal_score = db.Column(db.Float, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
 
