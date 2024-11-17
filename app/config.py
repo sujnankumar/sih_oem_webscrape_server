@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'a_hard_to_guess_string')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'Num3R1c@lly_Secure')
     
     # Define the base directory for the app
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -21,12 +21,12 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False  # Disable track modifications to save memory
 
     # Optional: Define JWT secret key if using JWT
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'another_hard_to_guess_string')
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'Str0ng_S3cr3t')
 
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 587
     MAIL_USE_TLS = True
     MAIL_USE_SSL = False
-    MAIL_USERNAME = 'sujnankumar439@gmail.com'
-    MAIL_PASSWORD = 'tfzv zlgc jane hoja'
-    MAIL_DEFAULT_SENDER = 'sujnankumar439@gmail.com'
+    MAIL_USERNAME = 'vulnerablity.tracker@gmail.com'
+    MAIL_PASSWORD = 'zwzp wewn lkme uvif'
+    MAIL_DEFAULT_SENDER = 'vulnerablity.tracker@gmail.com'
