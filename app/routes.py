@@ -8,9 +8,11 @@ from flask_mail import Message
 from . import mail
 
 bp = Blueprint('auth', __name__)
+api = Blueprint('api', __name__)
 
 def register_blueprints(app):
     app.register_blueprint(bp, url_prefix='/auth')
+    app.register_blueprint(api, url_prefix='/api')
 
 def send_email_to_subscribers(subject, message_body):
     from .models import Subscriber  
@@ -93,14 +95,14 @@ def logout():
     # For JWT, logout can be handled on the client-side by discarding the token
     return jsonify({'message': 'Successfully logged out'}), 200
 
-@bp.route('/dashboard', methods=['GET'])
+@api.route('/dashboard', methods=['GET'])
 @jwt_required()
 def dashboard():
     # Use get_jwt_identity to get the identity from the token
     identity = get_jwt_identity()
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
 
-@bp.route('/insert_scraped_data', methods=['POST'])
+@api.route('/insert_scraped_data', methods=['POST'])
 def insert_scraped_data():
     from .models import Vulnerabilities  # Import the Vulnerabilities model inside the function
     data = request.get_json()
@@ -138,7 +140,7 @@ def insert_scraped_data():
     return jsonify({'message': 'Data inserted successfully!'}), 201
 
 # Route to retrieve OEM website scraped data (protected by JWT)
-@bp.route('/get_scraped_data', methods=['GET'])
+@api.route('/get_scraped_data', methods=['GET'])
 @jwt_required()
 def get_scraped_data():
     from .models import Vulnerabilities # Import the Vulnerabilities model inside the function
@@ -164,7 +166,7 @@ def get_scraped_data():
 
     return jsonify({'data': data_list}), 200
 
-@bp.route('/search', methods=['POST'])
+@api.route('/search', methods=['POST'])
 def search():
     from .models import Vulnerabilities
 
@@ -186,7 +188,7 @@ def search():
     ]
     return jsonify(results)
 
-@bp.route('/suggestions', methods=['GET'])
+@api.route('/suggestions', methods=['GET'])
 def suggestions():
     from .models import Vulnerabilities
     search_term = request.args.get('term', '').lower()  # Get the term for suggestions
@@ -200,7 +202,7 @@ def suggestions():
     filtered_products = [product[0] for product in products if search_term in product[0].lower()]
     return jsonify(filtered_products)
 
-@bp.route('/send_alerts', methods=['POST'])
+@api.route('/send_alerts', methods=['POST'])
 def send_alerts():
     from .models import Alert, User, Vulnerabilities  # Import the necessary models inside the function
 
@@ -256,7 +258,7 @@ def send_alerts():
 
     return jsonify({'message': 'Alerts processed successfully!'}), 200
 
-@bp.route('/add_website', methods=['POST'])
+@api.route('/add_website', methods=['POST'])
 def add_website():
     from .models import OEMWebsite 
 
@@ -277,3 +279,58 @@ def add_website():
     db.session.commit()
 
     return jsonify({'message': 'Website added successfully!'}), 201
+
+
+@api.route('/filter_and_sort_vulnerabilities', methods=['POST'])
+@jwt_required()
+def filter_and_sort_vulnerabilities():
+    from .models import Vulnerabilities
+    data = request.get_json()
+
+    # Default values if no filters are provided
+    severity = data.get('severity', None)
+    oem_name = data.get('oem_name', None)
+    product_name = data.get('product_name', None)
+    sort_by = data.get('sort_by', 'published_date')  # Default sorting by published_date
+    order = data.get('order', 'desc')  # Default sorting in descending order
+
+    # Start with the base query
+    query = Vulnerabilities.query
+
+    # Apply filters if provided
+    if severity:
+        query = query.filter(Vulnerabilities.severity_level == float(severity)) 
+    if oem_name:
+        query = query.filter(Vulnerabilities.oem_name.ilike(f'%{oem_name}%'))
+    if product_name:
+        query = query.filter(Vulnerabilities.product_name.ilike(f'%{product_name}%'))
+
+    # Apply sorting based on 'sort_by' and 'order'
+    if sort_by in ['severity_level', 'published_date', 'scraped_date']:
+        column = getattr(Vulnerabilities, sort_by)
+        if order == 'asc':
+            query = query.order_by(column.asc())
+        else:
+            query = query.order_by(column.desc())
+
+    # Execute the query
+    vulnerabilities = query.all()
+
+    # Serialize the results
+    results = [
+        {
+            'product_name': vuln.product_name,
+            'product_version': vuln.product_version,
+            'oem_name': vuln.oem_name,
+            'severity_level': vuln.severity_level,
+            'vulnerability': vuln.vulnerability,
+            'mitigation_strategy': vuln.mitigation_strategy,
+            'published_date': vuln.published_date.strftime('%Y-%m-%d'),
+            'unique_id': vuln.unique_id,
+            'scraped_date': vuln.scraped_date.strftime('%Y-%m-%d')
+        }
+        for vuln in vulnerabilities
+    ]
+
+    return jsonify(results), 200
+
