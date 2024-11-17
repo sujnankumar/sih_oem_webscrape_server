@@ -2,8 +2,8 @@
 /migrations
 /test
 /app/__pycache__/
+/app/instace/
 /venv/
 /app/scrape/__pycache__/
 /app/scrape/tempCodeRunnerFile.py
 /app/scrape/try.py
-/app/instace/
