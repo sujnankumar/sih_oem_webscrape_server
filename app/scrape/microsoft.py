@@ -43,7 +43,6 @@ try:
     for field in fields:
         product = field.find_element(By.CSS_SELECTOR, '[data-automation-key="product"]').get_attribute("textContent")
         severity = field.find_element(By.CSS_SELECTOR, '[data-automation-key="severity"]').get_attribute("textContent")
-        product = field.find_element(By.CSS_SELECTOR, '[data-automation-key="product"]').get_attribute("textContent")
         impact = field.find_element(By.CSS_SELECTOR, '[data-automation-key="impact"]').get_attribute("textContent")
         fixedBuildNumber = field.find_element(By.CSS_SELECTOR, '[data-automation-key="fixedBuildNumber"]').get_attribute("textContent")
         article_links = [a.get_attribute('href') for a in field.find_elements(By.CSS_SELECTOR, '[data-automation-key="kbArticles"] ul li a')]
