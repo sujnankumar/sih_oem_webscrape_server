@@ -184,7 +184,7 @@ def insert_scraped_data():
 
 # Route to retrieve OEM website scraped data (protected by JWT)
 @api.route('/get_scraped_data', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def get_scraped_data():
     from .models import Vulnerabilities # Import the Vulnerabilities model inside the function
 
