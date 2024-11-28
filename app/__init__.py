@@ -23,7 +23,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object('app.config.Config') 
 
-    CORS(app)
+    CORS(app, supports_credentials=True)
     
     # Initialize extensions with app
     db.init_app(app)
