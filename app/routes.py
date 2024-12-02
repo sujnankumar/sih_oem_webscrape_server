@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, make_response
+from flask import Blueprint, jsonify, request, make_response, send_from_directory
 from flask_login import login_required, current_user
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from . import db, login_manager
@@ -10,6 +10,8 @@ import csv
 import json
 from io import StringIO, BytesIO
 from fpdf import FPDF
+import os
+from .config import Config
 
 bp = Blueprint('auth', __name__)
 api = Blueprint('api', __name__)
@@ -442,3 +444,33 @@ def export_data():
     response.headers["Content-Disposition"] = "attachment; filename=data.json"
     response.headers["Content-type"] = "application/json"
     return response
+
+
+@api.route('/tutorials', methods=['GET'])
+def list_videos():
+    """List all tutorial videos"""
+    # videos = [
+    #     {"name": f, "url": f"/api/tutorials/{f}"}
+    #     for f in os.listdir(Config.TUTORIALS_FOLDER) if f.endswith(('.mp4', '.webm', '.ogg'))
+    # ]
+
+    videos = [
+        {
+            "name": f,
+            "url": f"http://localhost:5000/api/tutorials/{f}",
+            "thumbnail": f"http://localhost:5000/api/tutorials/thumbnails/{f.split('.')[0]}.jpg"
+        }
+        for f in os.listdir(Config.TUTORIALS_FOLDER) if f.endswith(('.mp4', '.webm', '.ogg'))
+    ]
+
+    return jsonify(videos)
+
+@api.route('/tutorials/<filename>', methods=['GET'])
+def get_video(filename):
+    """Serve a specific tutorial video"""
+    return send_from_directory(Config.TUTORIALS_FOLDER, filename)
+
+@api.route('/tutorials/thumbnails/<filename>', methods=['GET'])
+def get_thumb(filename):
+    """Serve a specific tutorial video"""
+    return send_from_directory(Config.THUMBNAILS_FOLDER, filename)

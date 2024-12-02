@@ -2,6 +2,10 @@ import os
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'Num3R1c@lly_Secure')
+
+    TUTORIALS_FOLDER = os.path.join(os.getcwd(), 'tutorials')
+    THUMBNAILS_FOLDER = os.path.join(os.getcwd(), 'tutorials/thumbnails')
+
     
     # Define the base directory for the app
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))

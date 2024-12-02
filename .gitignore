@@ -8,3 +8,5 @@
 /app/scrape/tempCodeRunnerFile.py
 /app/scrape/try.py
 /app/scrape/.env
+/tutorials/*
+/tutorials/thumbnails/*
