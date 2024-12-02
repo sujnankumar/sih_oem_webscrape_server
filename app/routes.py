@@ -383,6 +383,52 @@ def filter_and_sort_vulnerabilities():
 
     return jsonify(results), 200
 
+@api.route('/start_scraping', methods=['POST'])
+def start_scraping():
+    from .scrape.scraper import scrape_oem_websites
+
+    try:
+        scrape_oem_websites()
+        return jsonify({'message': 'Scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/start_scraping/custom', methods=['POST'])
+def start_custom_scraping():
+    from .scrape.scraper import scrape_oem_websites_custom
+    # get data from the frontend as list of websites and perform scraping on only that 
+    data = request.get_json()
+    websites = data.get('websites', [])
+
+    if not websites:
+        return jsonify({'error': 'No websites provided'}), 400
+    
+    try:
+        scrape_oem_websites_custom(websites)
+        return jsonify({'message': 'Custom scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+@api.route('/start_scraping/filter', methods=['POST'])
+def start_filtered_scrape():
+    from .scrape.scraper import scrape_oem_websites_with_filter
+
+    data = request.get_json()
+    filters = data.get('filters', {})
+
+    if not filters:
+        return jsonify({'error': 'No filters provided'}), 400
+    
+    try:
+        scrape_oem_websites_with_filter(filters)
+        return jsonify({'message': 'Filtered scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
 @api.route('/export', methods=['GET'])
 def export_data():
     from .models import Vulnerabilities  
