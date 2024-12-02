@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, make_response
 from flask_login import login_required, current_user
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from . import db, login_manager
@@ -6,6 +6,10 @@ import bcrypt
 from datetime import datetime
 from flask_mail import Message
 from . import mail
+import csv
+import json
+from io import StringIO, BytesIO
+from fpdf import FPDF
 
 bp = Blueprint('auth', __name__)
 api = Blueprint('api', __name__)
@@ -377,3 +381,64 @@ def filter_and_sort_vulnerabilities():
 
     return jsonify(results), 200
 
+@api.route('/export', methods=['GET'])
+def export_data():
+    from .models import Vulnerabilities  
+    export_format = request.args.get('format', 'json').lower() 
+    data = Vulnerabilities.query.all()
+
+    # Serialize data
+    serialized_data = [
+        {
+            "product_name": item.product_name,
+            "product_version": item.product_version,
+            "oem_name": item.oem_name,
+            "severity_level": item.severity_level,
+            "vulnerability": item.vulnerability,
+            "mitigation_strategy": item.mitigation_strategy,
+            "published_date": item.published_date.strftime('%Y-%m-%d'),
+            "unique_id": item.unique_id,
+            "scraped_date": item.scraped_date.strftime('%Y-%m-%d')
+        }
+        for item in data
+    ]
+
+    if export_format == 'csv':
+        # Generate CSV
+        si = StringIO()
+        writer = csv.DictWriter(si, fieldnames=serialized_data[0].keys())
+        writer.writeheader()
+        writer.writerows(serialized_data)
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=data.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+
+    elif export_format == 'pdf':
+        # Generate PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for item in serialized_data:
+            for key, value in item.items():
+                pdf.cell(0, 10, f"{key}: {value}", ln=True)
+            pdf.cell(0, 10, "", ln=True)  # Add space between entries
+
+        # Write PDF to BytesIO
+        output = BytesIO()
+        pdf_output = pdf.output(dest='S').encode('latin1')  # Output PDF as string and encode
+        output.write(pdf_output)
+        output.seek(0)
+
+        # Create Flask response
+        response = make_response(output.read())
+        response.headers["Content-Disposition"] = "attachment; filename=data.pdf"
+        response.headers["Content-type"] = "application/pdf"
+        return response
+
+
+    # Default to JSON
+    response = make_response(json.dumps(serialized_data))
+    response.headers["Content-Disposition"] = "attachment; filename=data.json"
+    response.headers["Content-type"] = "application/json"
+    return response
