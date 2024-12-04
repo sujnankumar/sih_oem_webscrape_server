@@ -337,6 +337,40 @@ def send_alerts():
 
     return jsonify({'message': 'Alerts processed successfully!'}), 200
 
+@api.route('/user/alerts', methods=['GET'])
+def get_user_alerts():
+    """
+    Retrieve all alerts (mails) sent to the current user.
+    """
+    from .models import Alert
+
+    try:
+        # Retrieve all alerts for the logged-in user
+        alerts = Alert.query.filter_by(user_id=current_user.id).all()
+        # alerts = Alert.query.filter_by(user_id=1).all()
+
+        if not alerts:
+            return jsonify({"message": "No alerts found for this user."}), 404
+
+        # Prepare the response data
+        alerts_data = []
+        for alert in alerts:
+            alert_data = {
+                "vulnerability_id": alert.vulnerability_id,
+                "vulnerability_name": alert.vulnerability.product_name,
+                "oem_name": alert.vulnerability.oem_name,
+                "severity_level": alert.vulnerability.severity_level,
+                "status": alert.status,
+                "email_sent_timestamp": alert.email_sent_timestamp.strftime('%Y-%m-%d %H:%M:%S') if alert.email_sent_timestamp else None,
+                "vulnerability_details": alert.vulnerability.vulnerability
+            }
+            alerts_data.append(alert_data)
+
+        return jsonify({"alerts": alerts_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while retrieving alerts: {str(e)}"}), 500
+
 @api.route('/add_website', methods=['POST'])
 def add_website():
     from .models import OEMWebsite 
