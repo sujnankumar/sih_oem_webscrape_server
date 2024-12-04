@@ -96,6 +96,22 @@ class Alert(db.Model):
         self.status = status
 
 
+class ScrapeDetail(db.Model):
+    __tablename__ = 'scrape_details'
+
+    id = db.Column(db.Integer, primary_key=True)
+    scrape_started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    scrape_ended_at = db.Column(db.DateTime, nullable=True)
+    scraped_websites = db.Column(db.Text, nullable=False)  # Comma-separated list of website URLs
+    status = db.Column(db.String(50), nullable=False)  # 'In Progress', 'Completed', 'Failed'
+    error_message = db.Column(db.Text, nullable=True)
+
+    def __init__(self, scraped_websites, status='In Progress', error_message=None):
+        self.scraped_websites = scraped_websites
+        self.status = status
+        self.error_message = error_message
+
+
 class Thread(db.Model):
     __tablename__ = 'threads'
 
