@@ -152,7 +152,7 @@ def dashboard():
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
 
 
-@api.route('/dashboard/vulnerabilities', methods=['GET'])
+@api.route('/home/vulnerabilities', methods=['GET'])
 def get_vulnerabilities_per_month():
     """
     Fetch the number of vulnerabilities discovered per month.
