@@ -151,6 +151,36 @@ def dashboard():
     identity = get_jwt_identity()
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
 
+
+@api.route('/dashboard/vulnerabilities', methods=['GET'])
+def get_vulnerabilities_per_month():
+    """
+    Fetch the number of vulnerabilities discovered per month.
+    Returns data formatted for a chart: months and counts.
+    """
+    from sqlalchemy import extract, func
+    from .models import Vulnerabilities
+
+    # Query to group by month and year and count vulnerabilities
+    vulnerabilities_per_month = (
+        db.session.query(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            func.count(Vulnerabilities.id).label('count')
+        )
+        .group_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .all()
+    )
+
+    # Format response data
+    response = [
+        {"month": row[0], "count": row[1]} for row in vulnerabilities_per_month
+    ]
+
+    return jsonify(response)
+
+
+
 @api.route('/insert_scraped_data', methods=['POST'])
 def insert_scraped_data():
     from .models import Vulnerabilities  # Import the Vulnerabilities model inside the function
