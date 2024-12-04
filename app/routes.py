@@ -623,3 +623,98 @@ def vote_comment(comment_id):
     db.session.commit()
     return jsonify({"message": "Vote updated", "upvotes": comment.upvotes, "downvotes": comment.downvotes}), 200
 
+@api.route('/report-vulnerability', methods=['POST'])
+def report_vulnerability():
+    """
+    Allows users to report a vulnerability they found.
+    """
+    from .models import ReportedVulnerability
+
+    # Get the data from the request body
+    data = request.get_json()
+
+    # Validate input data
+    if not all(key in data for key in ['product_name', 'oem_name', 'vulnerability_description', 'severity_level']):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        # Create a new reported vulnerability entry
+        new_report = ReportedVulnerability(
+            user_id=current_user.id,
+            product_name=data['product_name'],
+            oem_name=data['oem_name'],
+            vulnerability_description=data['vulnerability_description'],
+            severity_level=data['severity_level'],
+            suggested_mitigation=data.get('suggested_mitigation')  # Optional field
+        )
+
+        # Add the new report to the database
+        db.session.add(new_report)
+        db.session.commit()
+
+        return jsonify({"message": "Vulnerability report submitted successfully!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"An error occurred while submitting the report: {str(e)}"}), 500
+    
+
+@api.route('/reported-vulnerabilities', methods=['GET'])
+def get_reported_vulnerabilities():
+    """
+    Allows users to retrieve the reported vulnerabilities they have submitted.
+    """
+    from .models import ReportedVulnerability
+
+    try:
+        # Fetch all reported vulnerabilities by the logged-in user
+        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=current_user.id).all()
+        # reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=1).all()
+
+        # Format the response
+        vulnerabilities_list = [
+            {
+                "id": v.id,
+                "product_name": v.product_name,
+                "oem_name": v.oem_name,
+                "vulnerability_description": v.vulnerability_description,
+                "severity_level": v.severity_level,
+                "suggested_mitigation": v.suggested_mitigation,
+                "status": v.status,
+                "reported_date": v.reported_date.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for v in reported_vulnerabilities
+        ]
+        
+        return jsonify(vulnerabilities_list), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while retrieving the reported vulnerabilities: {str(e)}"}), 500
+
+
+@api.route('/admin/action-on-report/<int:report_id>', methods=['PATCH'])
+def take_action_on_report(report_id):
+    """
+    Allows the admin to take action on a reported vulnerability.
+    """
+    from .models import ReportedVulnerability
+    
+    try:
+        # Retrieve the reported vulnerability by ID
+        reported_vulnerability = ReportedVulnerability.query.get_or_404(report_id)
+
+        # Get the new status from the request
+        new_status = request.json.get('status')
+
+        # Validate status
+        if new_status not in ['Reviewed', 'Accepted', 'Rejected']:
+            return jsonify({"error": "Invalid status. Allowed values are 'Reviewed', 'Accepted', 'Rejected'."}), 400
+        
+        # Update the status of the report
+        reported_vulnerability.status = new_status
+
+        # Commit the change to the database
+        db.session.commit()
+
+        return jsonify({"message": f"Report {report_id} updated to {new_status}."}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500

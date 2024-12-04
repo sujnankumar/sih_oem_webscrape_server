@@ -112,6 +112,30 @@ class ScrapeDetail(db.Model):
         self.error_message = error_message
 
 
+class ReportedVulnerability(db.Model):
+    __tablename__ = 'reported_vulnerabilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # Associate with user
+    user = db.relationship('User', backref=db.backref('reported_vulnerabilities', lazy=True))
+    
+    product_name = db.Column(db.String(150), nullable=False)
+    oem_name = db.Column(db.String(150), nullable=False)
+    vulnerability_description = db.Column(db.Text, nullable=False)
+    severity_level = db.Column(db.Float, nullable=False)  # Critical, High, Medium, etc.
+    suggested_mitigation = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(50), default='Pending')  # 'Pending', 'Reviewed', 'Resolved'
+    reported_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def __init__(self, user_id, product_name, oem_name, vulnerability_description, severity_level, suggested_mitigation=None):
+        self.user_id = user_id
+        self.product_name = product_name
+        self.oem_name = oem_name
+        self.vulnerability_description = vulnerability_description
+        self.severity_level = severity_level
+        self.suggested_mitigation = suggested_mitigation
+
+
 class Thread(db.Model):
     __tablename__ = 'threads'
 
