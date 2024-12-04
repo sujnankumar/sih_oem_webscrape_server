@@ -1,5 +1,6 @@
 from app import db
 from flask_login import UserMixin
+from datetime import datetime
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -56,12 +57,13 @@ class Vulnerabilities(db.Model):
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    base_scrore = db.Column(db.Float, nullable=True)
+    base_score = db.Column(db.Float, nullable=True)
     temporal_score = db.Column(db.Float, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
+    additional_details = db.Column(db.JSON, nullable=True) 
 
-    def __init__(self, product_name, product_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id):
+    def __init__(self, product_name, product_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
         self.product_name = product_name
         self.product_version = product_version
         self.oem_name = oem_name
@@ -72,6 +74,7 @@ class Vulnerabilities(db.Model):
         self.unique_id = unique_id
         self.scraped_date = scraped_date
         self.oem_website_id = oem_website_id
+        self.additional_details = additional_details
 
 
 class Alert(db.Model):
@@ -91,3 +94,40 @@ class Alert(db.Model):
         self.vulnerability_id = vulnerability_id
         self.user_id = user_id
         self.status = status
+
+
+class Thread(db.Model):
+    __tablename__ = 'threads'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Relationship
+    user = db.relationship('User', backref=db.backref('threads', lazy=True))
+    comments = db.relationship('Comment', backref='thread', lazy=True, cascade='all, delete-orphan')
+
+    def __init__(self, title, user_id):
+        self.title = title
+        self.user_id = user_id
+
+
+class Comment(db.Model):
+    __tablename__ = 'comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    upvotes = db.Column(db.Integer, default=0, nullable=False)
+    downvotes = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    thread_id = db.Column(db.Integer, db.ForeignKey('threads.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('comments', lazy=True))
+
+    def __init__(self, text, thread_id, user_id):
+        self.text = text
+        self.thread_id = thread_id
+        self.user_id = user_id

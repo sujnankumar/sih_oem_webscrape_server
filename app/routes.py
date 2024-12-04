@@ -520,3 +520,76 @@ def get_video(filename):
 def get_thumb(filename):
     """Serve a specific tutorial video"""
     return send_from_directory(Config.THUMBNAILS_FOLDER, filename)
+
+
+@api.route('/threads', methods=['GET'])
+def get_threads():
+    """Fetch all discussion threads."""
+    from .models import Thread
+    threads = Thread.query.all()
+    result = [
+        {
+            "id": thread.id,
+            "title": thread.title,
+            "created_at": thread.created_at,
+            "user": thread.user.username,
+            "comments_count": len(thread.comments)
+        }
+        for thread in threads
+    ]
+    return jsonify(result)
+
+
+@api.route('/threads', methods=['POST'])
+def create_thread():
+    """Create a new discussion thread."""
+    from .models import Thread
+    data = request.json
+    title = data.get("title")
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    thread = Thread(title=title, user_id=current_user.id)
+    db.session.add(thread)
+    db.session.commit()
+    return jsonify({"message": "Thread created successfully", "thread_id": thread.id}), 201
+
+
+@api.route('/threads/<int:thread_id>/comments', methods=['POST'])
+def add_comment(thread_id):
+    """Add a comment to a thread."""
+    from .models import Comment
+    data = request.json
+    text = data.get("text")
+
+    if not text:
+        return jsonify({"error": "Comment text is required"}), 400
+
+    comment = Comment(text=text, thread_id=thread_id, user_id=current_user.id)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify({"message": "Comment added successfully", "comment_id": comment.id}), 201
+
+
+@api.route('/comments/<int:comment_id>/vote', methods=['PATCH'])
+def vote_comment(comment_id):
+    """Upvote or downvote a comment."""
+    from .models import Comment
+    data = request.json
+    action = data.get("action")
+
+    comment = Comment.query.get(comment_id)
+    if not comment:
+        return jsonify({"error": "Comment not found"}), 404
+
+    if action == "upvote":
+        comment.upvotes += 1
+    elif action == "downvote":
+        comment.downvotes += 1
+    else:
+        return jsonify({"error": "Invalid action"}), 400
+
+    db.session.commit()
+    return jsonify({"message": "Vote updated", "upvotes": comment.upvotes, "downvotes": comment.downvotes}), 200
+
