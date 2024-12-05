@@ -9,3 +9,4 @@
 /app/scrape/try.py
 /app/scrape/.env
 /tutorials/*
+app/notes.ipynb
