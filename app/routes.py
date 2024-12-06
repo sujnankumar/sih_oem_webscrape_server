@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, make_response, send_from_directory
 from flask_login import login_required, current_user
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from . import db, login_manager
@@ -6,6 +6,12 @@ import bcrypt
 from datetime import datetime
 from flask_mail import Message
 from . import mail
+import csv
+import json
+from io import StringIO, BytesIO
+from fpdf import FPDF
+import os
+from .config import Config
 
 bp = Blueprint('auth', __name__)
 api = Blueprint('api', __name__)
@@ -144,6 +150,36 @@ def dashboard():
     # Use get_jwt_identity to get the identity from the token
     identity = get_jwt_identity()
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
+
+
+@api.route('/home/vulnerabilities', methods=['GET'])
+def get_vulnerabilities_per_month():
+    """
+    Fetch the number of vulnerabilities discovered per month.
+    Returns data formatted for a chart: months and counts.
+    """
+    from sqlalchemy import extract, func
+    from .models import Vulnerabilities
+
+    # Query to group by month and year and count vulnerabilities
+    vulnerabilities_per_month = (
+        db.session.query(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            func.count(Vulnerabilities.id).label('count')
+        )
+        .group_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .all()
+    )
+
+    # Format response data
+    response = [
+        {"month": row[0], "count": row[1]} for row in vulnerabilities_per_month
+    ]
+
+    return jsonify(response)
+
+
 
 @api.route('/insert_scraped_data', methods=['POST'])
 def insert_scraped_data():
@@ -301,6 +337,40 @@ def send_alerts():
 
     return jsonify({'message': 'Alerts processed successfully!'}), 200
 
+@api.route('/user/alerts', methods=['GET'])
+def get_user_alerts():
+    """
+    Retrieve all alerts (mails) sent to the current user.
+    """
+    from .models import Alert
+
+    try:
+        # Retrieve all alerts for the logged-in user
+        alerts = Alert.query.filter_by(user_id=current_user.id).all()
+        # alerts = Alert.query.filter_by(user_id=1).all()
+
+        if not alerts:
+            return jsonify({"message": "No alerts found for this user."}), 404
+
+        # Prepare the response data
+        alerts_data = []
+        for alert in alerts:
+            alert_data = {
+                "vulnerability_id": alert.vulnerability_id,
+                "vulnerability_name": alert.vulnerability.product_name,
+                "oem_name": alert.vulnerability.oem_name,
+                "severity_level": alert.vulnerability.severity_level,
+                "status": alert.status,
+                "email_sent_timestamp": alert.email_sent_timestamp.strftime('%Y-%m-%d %H:%M:%S') if alert.email_sent_timestamp else None,
+                "vulnerability_details": alert.vulnerability.vulnerability
+            }
+            alerts_data.append(alert_data)
+
+        return jsonify({"alerts": alerts_data}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while retrieving alerts: {str(e)}"}), 500
+
 @api.route('/add_website', methods=['POST'])
 def add_website():
     from .models import OEMWebsite 
@@ -377,3 +447,308 @@ def filter_and_sort_vulnerabilities():
 
     return jsonify(results), 200
 
+@api.route('/start_scraping', methods=['POST'])
+def start_scraping():
+    from .scrape.scraper import scrape_oem_websites
+
+    try:
+        scrape_oem_websites()
+        return jsonify({'message': 'Scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/start_scraping/custom', methods=['POST'])
+def start_custom_scraping():
+    from .scrape.scraper import scrape_oem_websites_custom
+    # get data from the frontend as list of websites and perform scraping on only that 
+    data = request.get_json()
+    websites = data.get('websites', [])
+
+    if not websites:
+        return jsonify({'error': 'No websites provided'}), 400
+    
+    try:
+        scrape_oem_websites_custom(websites)
+        return jsonify({'message': 'Custom scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+@api.route('/start_scraping/filter', methods=['POST'])
+def start_filtered_scrape():
+    from .scrape.scraper import scrape_oem_websites_with_filter
+
+    data = request.get_json()
+    filters = data.get('filters', {})
+
+    if not filters:
+        return jsonify({'error': 'No filters provided'}), 400
+    
+    try:
+        scrape_oem_websites_with_filter(filters)
+        return jsonify({'message': 'Filtered scraping started successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+@api.route('/export', methods=['GET'])
+def export_data():
+    from .models import Vulnerabilities  
+    export_format = request.args.get('format', 'json').lower() 
+    data = Vulnerabilities.query.all()
+
+    # Serialize data
+    serialized_data = [
+        {
+            "product_name": item.product_name,
+            "product_version": item.product_version,
+            "oem_name": item.oem_name,
+            "severity_level": item.severity_level,
+            "vulnerability": item.vulnerability,
+            "mitigation_strategy": item.mitigation_strategy,
+            "published_date": item.published_date.strftime('%Y-%m-%d'),
+            "unique_id": item.unique_id,
+            "scraped_date": item.scraped_date.strftime('%Y-%m-%d')
+        }
+        for item in data
+    ]
+
+    if export_format == 'csv':
+        # Generate CSV
+        si = StringIO()
+        writer = csv.DictWriter(si, fieldnames=serialized_data[0].keys())
+        writer.writeheader()
+        writer.writerows(serialized_data)
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=data.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+
+    elif export_format == 'pdf':
+        # Generate PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for item in serialized_data:
+            for key, value in item.items():
+                pdf.cell(0, 10, f"{key}: {value}", ln=True)
+            pdf.cell(0, 10, "", ln=True)  # Add space between entries
+
+        # Write PDF to BytesIO
+        output = BytesIO()
+        pdf_output = pdf.output(dest='S').encode('latin1')  # Output PDF as string and encode
+        output.write(pdf_output)
+        output.seek(0)
+
+        # Create Flask response
+        response = make_response(output.read())
+        response.headers["Content-Disposition"] = "attachment; filename=data.pdf"
+        response.headers["Content-type"] = "application/pdf"
+        return response
+
+
+    # Default to JSON
+    response = make_response(json.dumps(serialized_data))
+    response.headers["Content-Disposition"] = "attachment; filename=data.json"
+    response.headers["Content-type"] = "application/json"
+    return response
+
+
+@api.route('/tutorials', methods=['GET'])
+def list_videos():
+    """List all tutorial videos"""
+    # videos = [
+    #     {"name": f, "url": f"/api/tutorials/{f}"}
+    #     for f in os.listdir(Config.TUTORIALS_FOLDER) if f.endswith(('.mp4', '.webm', '.ogg'))
+    # ]
+
+    videos = [
+        {
+            "name": f,
+            "url": f"http://localhost:5000/api/tutorials/{f}",
+            "thumbnail": f"http://localhost:5000/api/tutorials/thumbnails/{f.split('.')[0]}.jpg"
+        }
+        for f in os.listdir(Config.TUTORIALS_FOLDER) if f.endswith(('.mp4', '.webm', '.ogg'))
+    ]
+
+    return jsonify(videos)
+
+@api.route('/tutorials/<filename>', methods=['GET'])
+def get_video(filename):
+    """Serve a specific tutorial video"""
+    return send_from_directory(Config.TUTORIALS_FOLDER, filename)
+
+@api.route('/tutorials/thumbnails/<filename>', methods=['GET'])
+def get_thumb(filename):
+    """Serve a specific tutorial video"""
+    return send_from_directory(Config.THUMBNAILS_FOLDER, filename)
+
+
+@api.route('/threads', methods=['GET'])
+def get_threads():
+    """Fetch all discussion threads."""
+    from .models import Thread
+    threads = Thread.query.all()
+    result = [
+        {
+            "id": thread.id,
+            "title": thread.title,
+            "created_at": thread.created_at,
+            "user": thread.user.username,
+            "comments_count": len(thread.comments)
+        }
+        for thread in threads
+    ]
+    return jsonify(result)
+
+
+@api.route('/threads', methods=['POST'])
+def create_thread():
+    """Create a new discussion thread."""
+    from .models import Thread
+    data = request.json
+    title = data.get("title")
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    thread = Thread(title=title, user_id=current_user.id)
+    db.session.add(thread)
+    db.session.commit()
+    return jsonify({"message": "Thread created successfully", "thread_id": thread.id}), 201
+
+
+@api.route('/threads/<int:thread_id>/comments', methods=['POST'])
+def add_comment(thread_id):
+    """Add a comment to a thread."""
+    from .models import Comment
+    data = request.json
+    text = data.get("text")
+
+    if not text:
+        return jsonify({"error": "Comment text is required"}), 400
+
+    comment = Comment(text=text, thread_id=thread_id, user_id=current_user.id)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify({"message": "Comment added successfully", "comment_id": comment.id}), 201
+
+
+@api.route('/comments/<int:comment_id>/vote', methods=['PATCH'])
+def vote_comment(comment_id):
+    """Upvote or downvote a comment."""
+    from .models import Comment
+    data = request.json
+    action = data.get("action")
+
+    comment = Comment.query.get(comment_id)
+    if not comment:
+        return jsonify({"error": "Comment not found"}), 404
+
+    if action == "upvote":
+        comment.upvotes += 1
+    elif action == "downvote":
+        comment.downvotes += 1
+    else:
+        return jsonify({"error": "Invalid action"}), 400
+
+    db.session.commit()
+    return jsonify({"message": "Vote updated", "upvotes": comment.upvotes, "downvotes": comment.downvotes}), 200
+
+@api.route('/report-vulnerability', methods=['POST'])
+def report_vulnerability():
+    """
+    Allows users to report a vulnerability they found.
+    """
+    from .models import ReportedVulnerability
+
+    # Get the data from the request body
+    data = request.get_json()
+
+    # Validate input data
+    if not all(key in data for key in ['product_name', 'oem_name', 'vulnerability_description', 'severity_level']):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        # Create a new reported vulnerability entry
+        new_report = ReportedVulnerability(
+            user_id=current_user.id,
+            product_name=data['product_name'],
+            oem_name=data['oem_name'],
+            vulnerability_description=data['vulnerability_description'],
+            severity_level=data['severity_level'],
+            suggested_mitigation=data.get('suggested_mitigation')  # Optional field
+        )
+
+        # Add the new report to the database
+        db.session.add(new_report)
+        db.session.commit()
+
+        return jsonify({"message": "Vulnerability report submitted successfully!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"An error occurred while submitting the report: {str(e)}"}), 500
+    
+
+@api.route('/reported-vulnerabilities', methods=['GET'])
+def get_reported_vulnerabilities():
+    """
+    Allows users to retrieve the reported vulnerabilities they have submitted.
+    """
+    from .models import ReportedVulnerability
+
+    try:
+        # Fetch all reported vulnerabilities by the logged-in user
+        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=current_user.id).all()
+        # reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=1).all()
+
+        # Format the response
+        vulnerabilities_list = [
+            {
+                "id": v.id,
+                "product_name": v.product_name,
+                "oem_name": v.oem_name,
+                "vulnerability_description": v.vulnerability_description,
+                "severity_level": v.severity_level,
+                "suggested_mitigation": v.suggested_mitigation,
+                "status": v.status,
+                "reported_date": v.reported_date.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for v in reported_vulnerabilities
+        ]
+        
+        return jsonify(vulnerabilities_list), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while retrieving the reported vulnerabilities: {str(e)}"}), 500
+
+
+@api.route('/admin/action-on-report/<int:report_id>', methods=['PATCH'])
+def take_action_on_report(report_id):
+    """
+    Allows the admin to take action on a reported vulnerability.
+    """
+    from .models import ReportedVulnerability
+    
+    try:
+        # Retrieve the reported vulnerability by ID
+        reported_vulnerability = ReportedVulnerability.query.get_or_404(report_id)
+
+        # Get the new status from the request
+        new_status = request.json.get('status')
+
+        # Validate status
+        if new_status not in ['Reviewed', 'Accepted', 'Rejected']:
+            return jsonify({"error": "Invalid status. Allowed values are 'Reviewed', 'Accepted', 'Rejected'."}), 400
+        
+        # Update the status of the report
+        reported_vulnerability.status = new_status
+
+        # Commit the change to the database
+        db.session.commit()
+
+        return jsonify({"message": f"Report {report_id} updated to {new_status}."}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500
