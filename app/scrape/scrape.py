@@ -1,35 +1,9 @@
 from playwright.sync_api import sync_playwright
 from langchain_community.document_transformers import Html2TextTransformer
 from typing import Any, Literal
-
-class Document:
-    """Class for storing a piece of text and associated metadata."""
-
-    page_content: str
-    """String text."""
-    type: Literal["Document"] = "Document"
-
-    def __init__(self, page_content: str, **kwargs: Any) -> None:
-        """Pass page_content in as positional or named arg."""
-        self.page_content = page_content
-        self.metadata = kwargs.get("metadata", {})
-
-    @classmethod
-    def is_lc_serializable(cls) -> bool:
-        """Return whether this class is serializable."""
-        return True
-
-    @classmethod
-    def get_lc_namespace(cls) -> list[str]:
-        """Get the namespace of the langchain object."""
-        return ["langchain", "schema", "document"]
-
-    def __str__(self) -> str:
-        """Override __str__ to restrict it to page_content and metadata."""
-        if self.metadata:
-            return f"page_content='{self.page_content}' metadata={self.metadata}"
-        else:
-            return f"page_content='{self.page_content}'"
+import re
+from bs4 import BeautifulSoup
+from document import Document
 
 def get_page_content(url):
     with sync_playwright() as p:
@@ -60,10 +34,26 @@ def get_page_content(url):
 
         return content
 
-def scrape_page(urls):
-    documents = []
-    for url in urls:
-        content = get_page_content(url)
-        document =  Document(page_content=content, metadata={"source": url})
-        documents.append(document)
+def check_for_cve(content):
+    cve_pattern = re.compile(r'CVE-2024-\d{4,5}')
+    return cve_pattern.search(content)
+
+def scrape_page(documents):
+    for doc in documents:
+        print(type(doc))
+        doc.page_content = get_page_content(doc.metadata["source"])
+        contains_cve = check_for_cve(doc.page_content)
+        doc.metadata["contains_cve"] = True if contains_cve else False
     return documents
+
+def convert_docs_without_cve(documents):
+    for doc in documents:
+        page_content = doc.page_content
+        soup = BeautifulSoup(page_content, 'html.parser')
+
+        links = '\n'.join([a['href'] for a in soup.find_all('a', href=True)])
+        doc.metadata["links"] = links
+        doc.contains_listing = True
+        doc.contains_date = True
+    return documents
+
