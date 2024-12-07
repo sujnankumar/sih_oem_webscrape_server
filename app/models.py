@@ -36,6 +36,7 @@ class OEMWebsite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     oem_name = db.Column(db.String(150), nullable=False)
     website_url = db.Column(db.Text, nullable=False)
+    scrape_frequency = db.Column(db.Integer, default=60)
     last_scraped = db.Column(db.DateTime, nullable=True)
 
     def __init__(self, oem_name, website_url, last_scraped=None):
