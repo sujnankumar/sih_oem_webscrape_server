@@ -152,33 +152,148 @@ def dashboard():
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
 
 
-@api.route('/home/vulnerabilities', methods=['GET'])
-def get_vulnerabilities_per_month():
+@api.route('/home/vulnerabilities/number_breakdown', methods=['GET'])
+def get_vulnerabilities_summary():
     """
-    Fetch the number of vulnerabilities discovered per month.
-    Returns data formatted for a chart: months and counts.
+    Fetch the total number of vulnerabilities and counts grouped by severity.
+    Returns total count and severity-wise breakdown.
     """
-    from sqlalchemy import extract, func
+    from sqlalchemy import func
     from .models import Vulnerabilities
 
-    # Query to group by month and year and count vulnerabilities
-    vulnerabilities_per_month = (
+    
+    total_count = db.session.query(func.count(Vulnerabilities.id)).scalar()
+
+    
+    severity_counts = (
         db.session.query(
-            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            Vulnerabilities.severity_level.label('severity'),
             func.count(Vulnerabilities.id).label('count')
         )
-        .group_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
-        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .group_by(Vulnerabilities.severity_level)
+        .all()
+    )
+
+    
+    severity_data = [{"severity": row[0], "count": row[1]} for row in severity_counts]
+
+    response = {
+        "total_vulnerabilities": total_count,
+        "severity_breakdown": severity_data
+    }
+
+    return jsonify(response)
+
+
+@api.route('/home/vulnerabilities/recent', methods=['GET'])
+def get_recent_vulnerabilities():
+    """
+    Fetch the most recently added vulnerabilities.
+    Returns the vulnerability, severity level, and date.
+    """
+    from .models import Vulnerabilities
+
+    # Query to get recently added vulnerabilities, ordered by date (descending)
+    recent_vulnerabilities = (
+        db.session.query(
+            Vulnerabilities.vulnerability.label('vulnerability'),
+            Vulnerabilities.severity_level.label('severity'),
+            Vulnerabilities.scraped_date.label('date')
+        )
+        .order_by(Vulnerabilities.scraped_date.desc())
+        .limit(3)  # Limit to the last 10 vulnerabilities; adjust as needed
         .all()
     )
 
     # Format response data
     response = [
-        {"month": row[0], "count": row[1]} for row in vulnerabilities_per_month
+        {
+            "vulnerability": row[0],
+            "severity_level": row[1],
+            "date": row[2].strftime('%Y-%m-%d %H:%M:%S') if row[2] else None
+        }
+        for row in recent_vulnerabilities
     ]
 
     return jsonify(response)
 
+
+@api.route('/home/vulnerabilities_per_month', methods=['GET'])
+def get_vulnerabilities_per_month():
+    """
+    Fetch the number of vulnerabilities discovered per month grouped by severity.
+    Returns data formatted for a chart: months, severities, and counts.
+    """
+    from sqlalchemy import extract, func
+    from .models import Vulnerabilities
+
+    # Query to group by year, month, and severity and count vulnerabilities
+    vulnerabilities_per_month = (
+        db.session.query(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            Vulnerabilities.severity_level.label('severity'),
+            func.count(Vulnerabilities.id).label('count')
+        )
+        .group_by(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date),
+            Vulnerabilities.severity_level
+        )
+        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .all()
+    )
+
+    # Organize response data
+    monthly_data = {}
+    for row in vulnerabilities_per_month:
+        month = row[0]
+        severity = row[1]
+        count = row[2]
+
+        # Initialize month entry if not present
+        if month not in monthly_data:
+            monthly_data[month] = {"month": month, "details": []}
+
+        # Add severity and count details
+        monthly_data[month]["details"].append({"severity": severity, "count": count})
+
+    # Convert monthly_data to a list of values for JSON response
+    response = list(monthly_data.values())
+
+    return jsonify(response)
+
+
+@api.route('/admin/scraping-log', methods=['POST'])
+def log_scraping_status():
+    """
+    Log the status of a scraping attempt (success or error).
+    Links the log to an OEMWebsite via the website_id.
+    """
+    from .models import ScrapingLogs, OEMWebsite
+
+    # Extract data from the request body
+    website_url = request.json.get('website_url')
+    status = request.json.get('status')  # Should be either 'success' or 'error'
+    error_message = request.json.get('error', None)
+
+    # Find the OEMWebsite object using the website_url
+    website = OEMWebsite.query.filter_by(website_url=website_url).first()
+
+    if website:
+        # Create a new ScrapingLogs entry with the correct website_id
+        log_entry = ScrapingLogs(
+            website_url=website_url,
+            status=status,
+            error_message=error_message,
+            website_id=website.id  # Reference to OEMWebsite
+        )
+
+        # Add the log entry to the database
+        db.session.add(log_entry)
+        db.session.commit()
+
+        return jsonify({"message": "Scraping status logged successfully"}), 201
+    else:
+        return jsonify({"message": "Website not found"}), 404
 
 
 @api.route('/insert_scraped_data', methods=['POST'])
