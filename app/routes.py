@@ -499,6 +499,9 @@ def export_data():
     export_format = request.args.get('format', 'json').lower() 
     data = Vulnerabilities.query.all()
 
+    if not data:
+        return jsonify({'error': 'No data found' }), 500
+
     # Serialize data
     serialized_data = [
         {
