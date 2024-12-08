@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 import re
 from bs4 import BeautifulSoup
@@ -25,14 +24,9 @@ def custom_transform(documents):
         for tag in soup(["style", "head", "footer", "script", "iframe"]):
             tag.decompose()
         doc.page_content = soup.prettify()
+        
         doc.page_content = ''.join(extract_relevant_snippets(doc.page_content, doc.contains_date, ['critical', 'high']))
-    i = 0
-    for doc in documents:
-        with open("html_content_{}.txt".format(i), "w", encoding="utf-8") as f:
-            f.write(str(doc.page_content))
-        print("written html_content_{}.txt".format(i))
-        i+=1
-
+    
     return transfer_documents(documents)
 
 
@@ -57,32 +51,43 @@ def extract_relevant_snippets(
                 continue
         return False
 
-    def find_relevant_snippets(elements, seen_snippets):
-        """Process elements to find relevant snippets based on severity and summary."""
+    def find_relevant_snippets(elements, seen_elements):
+        """Process elements to find relevant HTML snippets based on severity and summary."""
         snippets = []
-        print(elements)
         for elem in elements:
             current_elem = elem.parent
+            add_snippet = True  # Flag to determine if this snippet should be added
+
             while current_elem:
+                # If current element is already in seen_elements, skip it
+                if current_elem in seen_elements:
+                    add_snippet = False
+                    break
+
+                # Check text content of the element for severity and summary keywords
                 text_content = current_elem.get_text(separator=" ").lower()
                 contains_severity = any(kw in text_content for kw in severity_keywords)
                 contains_summary = any(kw in text_content for kw in summary_keywords)
 
                 if contains_severity:
-                    snippet = str(current_elem).strip()
-                    if snippet not in seen_snippets:
-                        seen_snippets.add(snippet)
-                        snippets.append(snippet)
-                    if contains_summary:
-                        break  # If summary is found, stop traversing up
-                current_elem = current_elem.parent
+                    # Extract the HTML content of the current element
+                    snippet_html = str(current_elem).strip()
+
+                    # If this snippet should be added
+                    if add_snippet:
+                        seen_elements.add(current_elem)  # Mark this element as seen
+                        snippets.append(snippet_html)
+                        break  # Stop traversing upward, we've added the snippet
+
+                current_elem = current_elem.parent  # Move up to the next parent
+
         return snippets
 
     # Parse the HTML content
     soup = BeautifulSoup(html_content, 'html.parser')
 
     # Identify elements based on whether we're looking for dates or CVEs
-    if not contains_date:
+    if contains_date:
         elements = soup.find_all(string=lambda text: text and contains_today_date(text))
     else:
         elements = soup.find_all(string=lambda text: text and re.search(r"CVE-\d{4}-\d{4,7}", text))
@@ -90,9 +95,84 @@ def extract_relevant_snippets(
     # Extract snippets
     seen_snippets = set()
     snippets = find_relevant_snippets(elements, seen_snippets)
-    print(snippets)
+
     return snippets
 
+def convert_doc_without_cve(document):
+    # Extract the page content from the document
+    page_content = document.page_content
+
+    # Define a regex pattern to match month-related text
+    today = datetime(2024, 11, 12)
+    month_formats = ["%B", "%b", "%m"]
+
+    def contains_today_month(text):
+        """Check if the text contains the current month and year in any format, regardless of order."""
+        month_formats = ["%B", "%b", "%m"]  # Define month formats
+        words = text.strip().split()  # Split text into words to process each part
+        
+        found_month = False  # Flag to track if the current month is found
+        found_year = False  # Flag to track if the current year is found
+        
+        for word in words:
+            # Check if the word matches any of the month formats
+            for fmt in month_formats:
+                try:
+                    parsed_month = datetime.strptime(word, fmt)
+                    if parsed_month.month == today.month:
+                        found_month = True
+                except ValueError:
+                    continue
+            
+            try:
+                if int(word) == today.year or int(word) == today.day:
+                    found_year = True
+            except ValueError:
+                continue
+
+        # Return True only if both the month and year are found
+        return found_month and found_year
+
+    def find_relevant_snippets(elements, seen_elements):
+        """Process elements to find relevant HTML snippets based on anchor tags."""
+        snippets = []
+        links = []
+        for elem in elements:
+            current_elem = elem.parent
+            add_snippet = True
+
+            while current_elem:
+                if current_elem in seen_elements:
+                    add_snippet = False
+                    break
+
+                link_tag = current_elem.find("a", href=True)
+                if link_tag:
+                    snippet_html = str(current_elem).strip()
+                    link_href = link_tag['href']
+
+                    if add_snippet:
+                        seen_elements.add(current_elem)
+                        snippets.append(snippet_html)
+                        links.append(link_href)
+                        break
+                current_elem = current_elem.parent
+        return snippets, links
+
+
+    soup = BeautifulSoup(page_content, 'html.parser')
+
+    elements = soup.find_all(string=lambda text: text and contains_today_month(text))
+
+    seen_snippets = set()
+    snippets, links = find_relevant_snippets(elements, seen_snippets)
+
+
+    document.metadata["links"] = links
+    document.contains_listing = True
+    document.contains_date = True
+
+    return document
 
 def transfer_documents(documents):
     html_to_text = html2text.HTML2Text()
@@ -107,8 +187,6 @@ def transfer_documents(documents):
     date_pattern = re.compile('|'.join(date_patterns))
     cve_pattern = re.compile(r'CVE-\d{4}-\d{4,7}', re.IGNORECASE)
     
-    
-
     results = []
     
     for doc in documents:
@@ -129,7 +207,6 @@ def transfer_documents(documents):
                     f=1
                     idx = 0
                     for varStart, varEnd in processed_ranges:
-                        print(varStart, varEnd)
                         if ((varStart<=start) and (start<=end)) or ((start<=varStart) and (varStart<=end)):
                             processed_ranges[idx]=(min(varStart, start), max(varEnd, end))
                             f=0
@@ -141,6 +218,6 @@ def transfer_documents(documents):
         for varStart, varEnd in processed_ranges:  # Combine the relevant snippets
             final_doc += '\n'.join(cleaned_lines[varStart:varEnd])
             final_doc = final_doc + "\n" + "="*50 + "\n"
-        document = Document(page_content=final_doc, metadata=doc.metadata)
+        document = Document(page_content=final_doc, metadata=doc.metadata, contains_listing=doc.contains_listing, contains_date=doc.contains_date, contains_details=doc.contains_details)
         results.append(document)
     return results

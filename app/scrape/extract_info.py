@@ -1,8 +1,11 @@
 from openai import OpenAI
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlunparse, urlencode
 import json
 import re
+from vuln_details import Vulnerability, AdditionalDetails 
+
+today = datetime(2024, 11, 26)
 
 def get_base_url(full_url: str) -> str:
     """Extract the base URL (scheme + netloc) from a full URL."""
@@ -14,6 +17,22 @@ def is_relative_url(url):
     parsed_url = urlparse(url)
     return not parsed_url.scheme and not parsed_url.netloc
 
+
+def normalize_url(url):
+    parsed_url = urlparse(url)
+    sorted_query = sorted(parse_qsl(parsed_url.query))
+    normalized_url = urlunparse((
+        parsed_url.scheme,
+        parsed_url.netloc.lower(),
+        parsed_url.path.rstrip('/'),
+        parsed_url.params,
+        urlencode(sorted_query),
+        parsed_url.fragment
+    ))
+    return normalized_url
+
+def are_links_same(link1, link2):
+    return normalize_url(link1) == normalize_url(link2)
 
 def to_json(str):
     try:
@@ -33,7 +52,8 @@ def to_json(str):
 def extract_info_from_results(documents, OPENAI_API_KEY):
     client = OpenAI(api_key=OPENAI_API_KEY)
 
-    today_date = datetime(2024, 11, 12).strftime("%d %B %Y")
+    global today
+    today_date = today.strftime("%d %B %Y")
 
     extracted_data = []
     for doc in documents:
@@ -86,7 +106,7 @@ def extract_info_from_results(documents, OPENAI_API_KEY):
                 messages=messages,
                 model="gpt-4o-mini",
                 temperature=0,
-                max_tokens=1000
+                max_tokens=1000,
             )
             output = response.choices[0].message.content.strip()
             
@@ -101,38 +121,78 @@ def extract_info_from_results(documents, OPENAI_API_KEY):
                     if not extracted_link.startswith("/"):
                         output = output.replace(f"'{extracted_link}'", "'None'")
 
+                    if are_links_same(extracted_link, doc.metadata.get("source", "")):
+                        output = output.replace(f"'{extracted_link}'", "'None'")
             extracted_json = to_json(output)
-            extracted_data.append({"input_doc": str(doc), "extracted_info": extracted_json})
-        except Exception as e:
-            print(f"Error processing document: {e}")
-    return extracted_data
 
-def get_relevant_links(documents, OPENAI_API_KEY, target_date = datetime(2024, 11, 12).strftime("%d %B %Y")):
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    for doc in documents:
-        links = doc.metadata.get("links", "").split("\n")
-        messages = [
-            {
-                "role": "system",
-                "content": ("You are an assistant that helps identify the most relevant link related to a specific date, based on    vulnerability details. Just provide the links seperated by commas. without any additional context."),
-            },
-            {
-                "role": "user",
-                "content": f"The following are links to vulnerability details. Please find the one most relevant to the date {target_date}.\n\n" +
-                "\n".join(links) +
-                f"\n\nPlease provide the relevant links based on the target date {target_date}.",
-            },
-        ]
-        try:
-            response = client.chat.completions.create(
-                messages=messages,
-                model="gpt-4o-mini",
-                temperature=0,
-                max_tokens=1000
-            )
-            output = response.choices[0].message.content.strip()
-            ret_links = output.split(", ")
+            doc.set_flag("extracted_info", extracted_json)
         except Exception as e:
             print(f"Error processing document: {e}")
-        doc.metadata["relevant_links"] = ret_links
     return documents
+
+def get_relevant_links(document, OPENAI_API_KEY, target_date = datetime(2024, 11, 26).strftime("%d %B %Y")):
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    links = document.metadata.get("links", "")
+    print(links)
+    messages = [
+        {
+            "role": "system",
+            "content": ("You are an assistant that helps identify the most relevant link related to vulnerability details, based on specific date {target_date}. Links must be related to more info on vulnerabilities. Just provide the links seperated by commas. without any additional context. If no relevant links are found return nothing."),
+        },
+        {
+            "role": "user",
+            "content": f"The following are links to vulnerability details. Please find the most relevant to the date {target_date}.\n\n" +
+            "\n".join(links) +
+            f"\n\nPlease provide the relevant links based on the target date {target_date}.",
+        },
+    ]
+    try:
+        response = client.chat.completions.create(
+            messages=messages,
+            model="gpt-4o-mini",
+            temperature=0,
+            max_tokens=1000
+        )
+        output = response.choices[0].message.content.strip()
+        print(output)
+        ret_links = output.split(", ")
+    except Exception as e:
+        print(f"Error processing document: {e}")
+    document.metadata["relevant_links"] = ret_links
+    return document
+
+def extract_vulnerability_info(document, OPENAI_API_KEY):
+    ret_list = []
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    matches = re.findall(r"CVE-\d{4}-\d{4,7}", document.page_content)
+
+    # Preserve only unique matches in the order found
+    unique_matches = []
+    seen = set()
+
+    for match in matches:
+        if match not in seen:
+            unique_matches.append(match)
+            seen.add(match)
+
+    for cve in unique_matches:
+        response = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a cybersecurity assistant that extracts structured vulnerability information from provided content of specific CVE ({cve}) and severity of only Critical or High. Return details of only the provided CVE. Strictly return NOTHING if the severity level is Low, Medium or Important."
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze the following content and extract vulnerability information of {cve} from: {document.page_content}"
+                }
+            ],
+            response_format = AdditionalDetails
+        )
+        try:
+            extracted_data = response.choices[0].message.parsed
+            ret_list.append(extracted_data)
+        except Exception as e:
+            print(f"Error processing document: {e}")
+    return ret_list

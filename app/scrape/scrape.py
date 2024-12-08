@@ -4,6 +4,7 @@ from typing import Any, Literal
 import re
 from bs4 import BeautifulSoup
 from document import Document
+from datetime import datetime
 
 def get_page_content(url):
     with sync_playwright() as p:
@@ -12,7 +13,12 @@ def get_page_content(url):
         page = browser.new_page()
 
         # Open the dynamic page
-        page.goto(url)
+        response = page.goto(url)
+
+        if response.url:
+            res_url = response.url.split('?')[0].split('#')[0]
+            if res_url != url:
+                return None
 
         # Wait for the network to be idle
         page.wait_for_load_state('networkidle')
@@ -40,20 +46,12 @@ def check_for_cve(content):
 
 def scrape_page(documents):
     for doc in documents:
-        print(type(doc))
-        doc.page_content = get_page_content(doc.metadata["source"])
-        contains_cve = check_for_cve(doc.page_content)
-        doc.metadata["contains_cve"] = True if contains_cve else False
+        print(doc.metadata["source"])
+        page_content = get_page_content(doc.metadata["source"])
+        if page_content:
+            doc.page_content = page_content
+            contains_cve = check_for_cve(doc.page_content)
+            doc.metadata["contains_cve"] = True if contains_cve else False
+            doc.set_flag("scraped", True)
+        doc.set_flag("scraped", False)
     return documents
-
-def convert_docs_without_cve(documents):
-    for doc in documents:
-        page_content = doc.page_content
-        soup = BeautifulSoup(page_content, 'html.parser')
-
-        links = '\n'.join([a['href'] for a in soup.find_all('a', href=True)])
-        doc.metadata["links"] = links
-        doc.contains_listing = True
-        doc.contains_date = True
-    return documents
-
