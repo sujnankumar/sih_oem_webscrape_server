@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, make_response, send_from_directory
+from flask import Blueprint, jsonify, request, make_response, send_from_directory, session
 from flask_login import login_required, current_user
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from . import db, login_manager
@@ -68,34 +68,98 @@ def register():
 
     return jsonify({'message': 'Registration successful!'}), 201
 
-@bp.route('/login', methods=['POST'])
-def login():
-    from .models import User  # Import User inside the function
+# @bp.route('/login', methods=['POST'])
+# def login():
+#     from .models import User  # Import User inside the function
+
+#     data = request.get_json()
+#     email = data.get('email')
+#     password = data.get('password')
+#     otp = data.get('otp')
+
+#     if not email or not password:
+#         return jsonify({"error": "Missing required fields"}), 400
+    
+#     stored_otp = User.query.filter_by(email=email).first().otp
+#     stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
+
+#     if not stored_otp or not stored_otp_generated_at:
+#         return jsonify({"error": "OTP not generated"}), 400
+    
+#     if (datetime.now() - stored_otp_generated_at).seconds > 600:
+#         return jsonify({"error": "OTP expired"}), 401
+
+#     if stored_otp != otp:
+#         return jsonify({"error": "Invalid OTP"}), 401
+
+#     user = User.query.filter_by(email=email).first()
+    
+#     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+#         # Create a JWT token
+#         access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
+#         return jsonify({
+#             'message': 'Login successful!',
+#             'access_token': access_token,
+#             'user': {
+#                 'username': user.username,
+#                 'email': user.email
+#             }
+#         }), 200
+
+#     return jsonify({'message': 'Invalid email or password'}), 401
+
+@bp.route('/verify-otp', methods=['POST'])
+def verify_otp():
+    from .models import User
 
     data = request.get_json()
     email = data.get('email')
-    password = data.get('password')
     otp = data.get('otp')
 
-    if not email or not password:
+    if not email or not otp:
         return jsonify({"error": "Missing required fields"}), 400
-    
-    stored_otp = User.query.filter_by(email=email).first().otp
-    stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    stored_otp = user.otp
+    stored_otp_generated_at = user.otp_generated_at
 
     if not stored_otp or not stored_otp_generated_at:
         return jsonify({"error": "OTP not generated"}), 400
-    
+
     if (datetime.now() - stored_otp_generated_at).seconds > 600:
         return jsonify({"error": "OTP expired"}), 401
 
     if stored_otp != otp:
         return jsonify({"error": "Invalid OTP"}), 401
 
+    # Mark OTP as verified (could use session or database)
+    session['otp_verified'] = email  # Save the email of verified user in session
+    return jsonify({"message": "OTP verified successfully"}), 200
+
+
+@bp.route('/login', methods=['POST'])
+def login():
+    from .models import User
+
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Check if OTP was verified
+    if session.get('otp_verified') != email:
+        return jsonify({"error": "OTP not verified"}), 403
+
     user = User.query.filter_by(email=email).first()
-    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-        # Create a JWT token
         access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
         return jsonify({
             'message': 'Login successful!',
@@ -143,6 +207,7 @@ def get_otp():
 @jwt_required()
 def logout():
     return jsonify({'message': 'Successfully logged out'}), 200
+    
 
 @api.route('/dashboard', methods=['GET'])
 @jwt_required()
