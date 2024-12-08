@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from .scrape.scraper import scrape_page
+from .scraper import scrape_page
 from html_transform import transfer_documents, custom_transform, convert_doc_without_cve
 from extract_info import extract_info_from_results, extract_vulnerability_info, get_relevant_links, get_base_url, is_relative_url
 from document import Document
