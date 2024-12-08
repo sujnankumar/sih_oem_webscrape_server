@@ -50,7 +50,7 @@ def gather_more_links(docs_extracted_info):
 def create_further_documents(more_links):
     return [Document(page_content="", metadata={"source": link, "contains_cve": False}, contains_listing=False, contains_date=False) for link in more_links]
 
-def main():
+def dynamic_scraper():
     api_key = load_api_key()
     initial_documents = initialize_documents()
     documents = scrape_documents(initial_documents)
@@ -75,6 +75,3 @@ def main():
         extracted_info = extract_vulnerability_info(doc, api_key)
         for info in extracted_info:
             print(type(info))
-
-if __name__ == "__main__":
-    main()
