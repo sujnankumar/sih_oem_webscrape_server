@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from scrape import scrape_page
+from scraper import scrape_page
 from html_transform import transfer_documents, custom_transform, convert_doc_without_cve
 from extract_info import extract_info_from_results, extract_vulnerability_info, get_relevant_links, get_base_url, is_relative_url
 from document import Document
@@ -50,9 +50,9 @@ def gather_more_links(docs_extracted_info):
 def create_further_documents(more_links):
     return [Document(page_content="", metadata={"source": link, "contains_cve": False}, contains_listing=False, contains_date=False) for link in more_links]
 
-def dynamic_scraper():
+def dynamic_scraper(initial_documents):
     api_key = load_api_key()
-    initial_documents = initialize_documents()
+
     documents = scrape_documents(initial_documents)
     
     documents_listing = process_documents_with_listings(documents, api_key)
