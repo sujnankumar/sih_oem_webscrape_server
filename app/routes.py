@@ -266,7 +266,7 @@ def get_recent_vulnerabilities():
             Vulnerabilities.scraped_date.label('date')
         )
         .order_by(Vulnerabilities.scraped_date.desc())
-        .limit(3)  # Limit to the last 10 vulnerabilities; adjust as needed
+        .limit(8)  # Limit to the last 10 vulnerabilities; adjust as needed
         .all()
     )
 
