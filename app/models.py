@@ -11,6 +11,7 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(255), nullable=False)
     otp = db.Column(db.String(6), nullable=True)
     otp_generated_at = db.Column(db.DateTime, nullable=True)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
     # Fields for user interest areas
     interested_in_critical = db.Column(db.Boolean, default=True, nullable=False)
@@ -38,11 +39,22 @@ class OEMWebsite(db.Model):
     website_url = db.Column(db.Text, nullable=False)
     scrape_frequency = db.Column(db.Integer, default=60)
     last_scraped = db.Column(db.DateTime, nullable=True)
+    is_it = db.Column(db.Boolean, default=True, nullable=False)
+    is_official = db.Column(db.Boolean, default=True, nullable=False)
+    contains_listing = db.Column(db.Boolean, default=False, nullable=False)
+    contains_date = db.Column(db.Boolean, default=False, nullable=False)
+    contains_details = db.Column(db.Boolean, default=False, nullable=False)
 
-    def __init__(self, oem_name, website_url, last_scraped=None):
+    def __init__(self, oem_name, website_url, scrape_frequency=60, last_scraped=None, is_it=True, is_official=True, contains_listing=False, contains_date=False, contains_details=False):
         self.oem_name = oem_name
         self.website_url = website_url
+        self.scrape_frequency = scrape_frequency
         self.last_scraped = last_scraped
+        self.is_it = is_it
+        self.is_official = is_official
+        self.contains_listing = contains_listing
+        self.contains_date = contains_date
+        self.contains_details = contains_details
 
     
 class ScrapingLogs(db.Model):

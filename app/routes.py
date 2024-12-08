@@ -160,7 +160,7 @@ def login():
         return jsonify({"error": "User not found"}), 404
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-        access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
+        access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email, 'is_admin': user.is_admin})
         return jsonify({
             'message': 'Login successful!',
             'access_token': access_token,
@@ -193,6 +193,7 @@ def get_otp():
 
     # Save the OTP to the user's record (assuming there's a field for it)
     user.otp = otp
+    print(user.otp)
     user.otp_generated_at = datetime.now()
     db.session.commit()
 
@@ -215,6 +216,58 @@ def dashboard():
     # Use get_jwt_identity to get the identity from the token
     identity = get_jwt_identity()
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
+
+
+@api.route('/admin/add-website', methods=['POST'])
+@jwt_required()
+def add_website():
+    """
+    API to allow admin to add a new website.
+    """
+    from .models import OEMWebsite
+
+    # Extract data from the request
+    data = request.get_json()
+
+    is_admin = get_jwt_identity()['is_admin']
+
+    if not is_admin:
+        return jsonify({"error": "Unauthorized access. You are not recognised as admin."}), 403
+
+    # Validate the input data
+    required_fields = ['website', 'oem_name', 'scrape_frequency', 'options']
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        # Unpack form data
+        website_name = data['website']
+        oem_name = data['oem_name']
+        scrape_frequency = int(data['scrape_frequency'])
+        options = data['options']
+
+        # Add new website entry to the database
+        new_website = OEMWebsite(
+            website_url=website_name,
+            oem_name=oem_name,
+            scrape_frequency=scrape_frequency,
+            contains_listing=options.get('contains_listing', False),
+            contains_details=options.get('contains_details', False),
+            contains_date=options.get('contains_date', False),
+            is_it=options.get('is_it', False),
+            is_official=options.get('is_official', False),
+        )
+
+        # Commit the new website to the database
+        db.session.add(new_website)
+        db.session.commit()
+
+        return jsonify({"message": "Website added successfully!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding website: {str(e)}")
+        return jsonify({"error": "An error occurred while adding the website."}), 500
+
 
 
 @api.route('/home/vulnerabilities/number_breakdown', methods=['GET'])
@@ -551,28 +604,6 @@ def get_user_alerts():
     except Exception as e:
         return jsonify({"error": f"An error occurred while retrieving alerts: {str(e)}"}), 500
 
-@api.route('/add_website', methods=['POST'])
-def add_website():
-    from .models import OEMWebsite 
-
-    data = request.get_json()
-    oem_name = data.get('oem_name')
-    website_url = data.get('website_url')
-
-    if not oem_name or not website_url:
-        return jsonify({'message': 'Missing required fields'}), 400
-
-    # Check if the website already exists
-    if OEMWebsite.query.filter_by(website_url=website_url).first():
-        return jsonify({"error": "Website already exists"}), 400
-
-    # Create a new OEMWebsite record
-    new_website = OEMWebsite(oem_name=oem_name, website_url=website_url)
-    db.session.add(new_website)
-    db.session.commit()
-
-    return jsonify({'message': 'Website added successfully!'}), 201
-
 
 @api.route('/filter_and_sort_vulnerabilities', methods=['POST'])
 @jwt_required()
@@ -887,9 +918,11 @@ def get_reported_vulnerabilities():
     from .models import ReportedVulnerability
 
     user = get_jwt_identity()
+    print(user)
     user_id = user['id']
 
     try:
+        
         # Fetch all reported vulnerabilities by the logged-in user
         reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=user_id).all()
         # reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=1).all()
