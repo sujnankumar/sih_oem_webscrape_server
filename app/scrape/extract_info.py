@@ -3,7 +3,7 @@ from datetime import datetime
 from urllib.parse import urlparse, parse_qsl, urlunparse, urlencode
 import json
 import re
-from vuln_details import Vulnerability, AdditionalDetails 
+from .vuln_details import Vulnerability, AdditionalDetails 
 
 today = datetime(2024, 11, 26)
 

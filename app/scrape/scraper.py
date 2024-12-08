@@ -1,10 +1,6 @@
 from playwright.sync_api import sync_playwright
-from langchain_community.document_transformers import Html2TextTransformer
-from typing import Any, Literal
 import re
-from bs4 import BeautifulSoup
-from document import Document
-from datetime import datetime
+
 
 def get_page_content(url):
     with sync_playwright() as p:
