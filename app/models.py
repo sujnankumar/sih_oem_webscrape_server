@@ -36,12 +36,37 @@ class OEMWebsite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     oem_name = db.Column(db.String(150), nullable=False)
     website_url = db.Column(db.Text, nullable=False)
+    scrape_frequency = db.Column(db.Integer, default=60)
     last_scraped = db.Column(db.DateTime, nullable=True)
 
     def __init__(self, oem_name, website_url, last_scraped=None):
         self.oem_name = oem_name
         self.website_url = website_url
         self.last_scraped = last_scraped
+
+    
+class ScrapingLogs(db.Model):
+    __tablename__ = 'scraping_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)  # Reference to OEMWebsite
+    website_url = db.Column(db.String(255), nullable=False) 
+    status = db.Column(db.String(50), nullable=False)  # 'success' or 'error'
+    error_message = db.Column(db.String(500), nullable=True)  # Nullable in case of success
+    scraped_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship to the OEMWebsite model
+    website = db.relationship('OEMWebsite', backref=db.backref('scraping_logs', lazy=True))
+
+    def __init__(self, website_url, status, error_message=None, website_id=None):
+        self.website_url = website_url
+        self.status = status
+        self.error_message = error_message
+        self.website_id = website_id
+        self.scraped_at = datetime.utcnow()
+
+    def __repr__(self):
+        return f"<ScrapingLog {self.website_url}, {self.status}>"
 
 
 class Vulnerabilities(db.Model):
@@ -51,7 +76,7 @@ class Vulnerabilities(db.Model):
     product_name = db.Column(db.String(150), nullable=False)
     product_version = db.Column(db.String(100), nullable=True)
     oem_name = db.Column(db.String(150), nullable=False)
-    severity_level = db.Column(db.Float, nullable=False)  # Critical or High 0-10
+    severity_level = db.Column(db.Text, nullable=False)  # Critical or High
     vulnerability = db.Column(db.Text, nullable=False)
     mitigation_strategy = db.Column(db.Text, nullable=False)
     published_date = db.Column(db.Date, nullable=False)

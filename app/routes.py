@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, make_response, send_from_directory
+from flask import Blueprint, jsonify, request, make_response, send_from_directory, session
 from flask_login import login_required, current_user
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from . import db, login_manager
@@ -68,34 +68,98 @@ def register():
 
     return jsonify({'message': 'Registration successful!'}), 201
 
-@bp.route('/login', methods=['POST'])
-def login():
-    from .models import User  # Import User inside the function
+# @bp.route('/login', methods=['POST'])
+# def login():
+#     from .models import User  # Import User inside the function
+
+#     data = request.get_json()
+#     email = data.get('email')
+#     password = data.get('password')
+#     otp = data.get('otp')
+
+#     if not email or not password:
+#         return jsonify({"error": "Missing required fields"}), 400
+    
+#     stored_otp = User.query.filter_by(email=email).first().otp
+#     stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
+
+#     if not stored_otp or not stored_otp_generated_at:
+#         return jsonify({"error": "OTP not generated"}), 400
+    
+#     if (datetime.now() - stored_otp_generated_at).seconds > 600:
+#         return jsonify({"error": "OTP expired"}), 401
+
+#     if stored_otp != otp:
+#         return jsonify({"error": "Invalid OTP"}), 401
+
+#     user = User.query.filter_by(email=email).first()
+    
+#     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+#         # Create a JWT token
+#         access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
+#         return jsonify({
+#             'message': 'Login successful!',
+#             'access_token': access_token,
+#             'user': {
+#                 'username': user.username,
+#                 'email': user.email
+#             }
+#         }), 200
+
+#     return jsonify({'message': 'Invalid email or password'}), 401
+
+@bp.route('/verify-otp', methods=['POST'])
+def verify_otp():
+    from .models import User
 
     data = request.get_json()
     email = data.get('email')
-    password = data.get('password')
     otp = data.get('otp')
 
-    if not email or not password:
+    if not email or not otp:
         return jsonify({"error": "Missing required fields"}), 400
-    
-    stored_otp = User.query.filter_by(email=email).first().otp
-    stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    stored_otp = user.otp
+    stored_otp_generated_at = user.otp_generated_at
 
     if not stored_otp or not stored_otp_generated_at:
         return jsonify({"error": "OTP not generated"}), 400
-    
+
     if (datetime.now() - stored_otp_generated_at).seconds > 600:
         return jsonify({"error": "OTP expired"}), 401
 
     if stored_otp != otp:
         return jsonify({"error": "Invalid OTP"}), 401
 
+    # Mark OTP as verified (could use session or database)
+    session['otp_verified'] = email  # Save the email of verified user in session
+    return jsonify({"message": "OTP verified successfully"}), 200
+
+
+@bp.route('/login', methods=['POST'])
+def login():
+    from .models import User
+
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Check if OTP was verified
+    if session.get('otp_verified') != email:
+        return jsonify({"error": "OTP not verified"}), 403
+
     user = User.query.filter_by(email=email).first()
-    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-        # Create a JWT token
         access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
         return jsonify({
             'message': 'Login successful!',
@@ -143,6 +207,7 @@ def get_otp():
 @jwt_required()
 def logout():
     return jsonify({'message': 'Successfully logged out'}), 200
+    
 
 @api.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -152,33 +217,148 @@ def dashboard():
     return jsonify({'message': f'Welcome, {identity["username"]}!'})
 
 
-@api.route('/home/vulnerabilities', methods=['GET'])
-def get_vulnerabilities_per_month():
+@api.route('/home/vulnerabilities/number_breakdown', methods=['GET'])
+def get_vulnerabilities_summary():
     """
-    Fetch the number of vulnerabilities discovered per month.
-    Returns data formatted for a chart: months and counts.
+    Fetch the total number of vulnerabilities and counts grouped by severity.
+    Returns total count and severity-wise breakdown.
     """
-    from sqlalchemy import extract, func
+    from sqlalchemy import func
     from .models import Vulnerabilities
 
-    # Query to group by month and year and count vulnerabilities
-    vulnerabilities_per_month = (
+    
+    total_count = db.session.query(func.count(Vulnerabilities.id)).scalar()
+
+    
+    severity_counts = (
         db.session.query(
-            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            Vulnerabilities.severity_level.label('severity'),
             func.count(Vulnerabilities.id).label('count')
         )
-        .group_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
-        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .group_by(Vulnerabilities.severity_level)
+        .all()
+    )
+
+    
+    severity_data = [{"severity": row[0], "count": row[1]} for row in severity_counts]
+
+    response = {
+        "total_vulnerabilities": total_count,
+        "severity_breakdown": severity_data
+    }
+
+    return jsonify(response)
+
+
+@api.route('/home/vulnerabilities/recent', methods=['GET'])
+def get_recent_vulnerabilities():
+    """
+    Fetch the most recently added vulnerabilities.
+    Returns the vulnerability, severity level, and date.
+    """
+    from .models import Vulnerabilities
+
+    # Query to get recently added vulnerabilities, ordered by date (descending)
+    recent_vulnerabilities = (
+        db.session.query(
+            Vulnerabilities.vulnerability.label('vulnerability'),
+            Vulnerabilities.severity_level.label('severity'),
+            Vulnerabilities.scraped_date.label('date')
+        )
+        .order_by(Vulnerabilities.scraped_date.desc())
+        .limit(8)  # Limit to the last 10 vulnerabilities; adjust as needed
         .all()
     )
 
     # Format response data
     response = [
-        {"month": row[0], "count": row[1]} for row in vulnerabilities_per_month
+        {
+            "vulnerability": row[0],
+            "severity_level": row[1],
+            "date": row[2].strftime('%Y-%m-%d %H:%M:%S') if row[2] else None
+        }
+        for row in recent_vulnerabilities
     ]
 
     return jsonify(response)
 
+
+@api.route('/home/vulnerabilities_per_month', methods=['GET'])
+def get_vulnerabilities_per_month():
+    """
+    Fetch the number of vulnerabilities discovered per month grouped by severity.
+    Returns data formatted for a chart: months, severities, and counts.
+    """
+    from sqlalchemy import extract, func
+    from .models import Vulnerabilities
+
+    # Query to group by year, month, and severity and count vulnerabilities
+    vulnerabilities_per_month = (
+        db.session.query(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date).label('month_year'),
+            Vulnerabilities.severity_level.label('severity'),
+            func.count(Vulnerabilities.id).label('count')
+        )
+        .group_by(
+            func.strftime('%Y-%m', Vulnerabilities.scraped_date),
+            Vulnerabilities.severity_level
+        )
+        .order_by(func.strftime('%Y-%m', Vulnerabilities.scraped_date))
+        .all()
+    )
+
+    # Organize response data
+    monthly_data = {}
+    for row in vulnerabilities_per_month:
+        month = row[0]
+        severity = row[1]
+        count = row[2]
+
+        # Initialize month entry if not present
+        if month not in monthly_data:
+            monthly_data[month] = {"month": month, "details": []}
+
+        # Add severity and count details
+        monthly_data[month]["details"].append({"severity": severity, "count": count})
+
+    # Convert monthly_data to a list of values for JSON response
+    response = list(monthly_data.values())
+
+    return jsonify(response)
+
+
+@api.route('/admin/scraping-log', methods=['POST'])
+def log_scraping_status():
+    """
+    Log the status of a scraping attempt (success or error).
+    Links the log to an OEMWebsite via the website_id.
+    """
+    from .models import ScrapingLogs, OEMWebsite
+
+    # Extract data from the request body
+    website_url = request.json.get('website_url')
+    status = request.json.get('status')  # Should be either 'success' or 'error'
+    error_message = request.json.get('error', None)
+
+    # Find the OEMWebsite object using the website_url
+    website = OEMWebsite.query.filter_by(website_url=website_url).first()
+
+    if website:
+        # Create a new ScrapingLogs entry with the correct website_id
+        log_entry = ScrapingLogs(
+            website_url=website_url,
+            status=status,
+            error_message=error_message,
+            website_id=website.id  # Reference to OEMWebsite
+        )
+
+        # Add the log entry to the database
+        db.session.add(log_entry)
+        db.session.commit()
+
+        return jsonify({"message": "Scraping status logged successfully"}), 201
+    else:
+        return jsonify({"message": "Website not found"}), 404
 
 
 @api.route('/insert_scraped_data', methods=['POST'])
@@ -499,6 +679,9 @@ def export_data():
     export_format = request.args.get('format', 'json').lower() 
     data = Vulnerabilities.query.all()
 
+    if not data:
+        return jsonify({'error': 'No data found' }), 500
+
     # Serialize data
     serialized_data = [
         {
@@ -658,14 +841,16 @@ def vote_comment(comment_id):
     return jsonify({"message": "Vote updated", "upvotes": comment.upvotes, "downvotes": comment.downvotes}), 200
 
 @api.route('/report-vulnerability', methods=['POST'])
+@jwt_required()
 def report_vulnerability():
     """
     Allows users to report a vulnerability they found.
     """
     from .models import ReportedVulnerability
-
     # Get the data from the request body
     data = request.get_json()
+    user = get_jwt_identity()
+    user_id = user['id']
 
     # Validate input data
     if not all(key in data for key in ['product_name', 'oem_name', 'vulnerability_description', 'severity_level']):
@@ -674,7 +859,7 @@ def report_vulnerability():
     try:
         # Create a new reported vulnerability entry
         new_report = ReportedVulnerability(
-            user_id=current_user.id,
+            user_id=user_id,
             product_name=data['product_name'],
             oem_name=data['oem_name'],
             vulnerability_description=data['vulnerability_description'],
@@ -689,21 +874,26 @@ def report_vulnerability():
         return jsonify({"message": "Vulnerability report submitted successfully!"}), 201
     except Exception as e:
         db.session.rollback()
+        print(e)
         return jsonify({"error": f"An error occurred while submitting the report: {str(e)}"}), 500
     
 
 @api.route('/reported-vulnerabilities', methods=['GET'])
+@jwt_required()
 def get_reported_vulnerabilities():
     """
     Allows users to retrieve the reported vulnerabilities they have submitted.
     """
     from .models import ReportedVulnerability
 
+    user = get_jwt_identity()
+    user_id = user['id']
+
     try:
         # Fetch all reported vulnerabilities by the logged-in user
-        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=current_user.id).all()
+        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=user_id).all()
         # reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=1).all()
-
+        print(reported_vulnerabilities)
         # Format the response
         vulnerabilities_list = [
             {
