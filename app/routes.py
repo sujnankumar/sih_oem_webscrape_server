@@ -841,14 +841,16 @@ def vote_comment(comment_id):
     return jsonify({"message": "Vote updated", "upvotes": comment.upvotes, "downvotes": comment.downvotes}), 200
 
 @api.route('/report-vulnerability', methods=['POST'])
+@jwt_required()
 def report_vulnerability():
     """
     Allows users to report a vulnerability they found.
     """
     from .models import ReportedVulnerability
-
     # Get the data from the request body
     data = request.get_json()
+    user = get_jwt_identity()
+    user_id = user['id']
 
     # Validate input data
     if not all(key in data for key in ['product_name', 'oem_name', 'vulnerability_description', 'severity_level']):
@@ -857,7 +859,7 @@ def report_vulnerability():
     try:
         # Create a new reported vulnerability entry
         new_report = ReportedVulnerability(
-            user_id=current_user.id,
+            user_id=user_id,
             product_name=data['product_name'],
             oem_name=data['oem_name'],
             vulnerability_description=data['vulnerability_description'],
@@ -872,21 +874,26 @@ def report_vulnerability():
         return jsonify({"message": "Vulnerability report submitted successfully!"}), 201
     except Exception as e:
         db.session.rollback()
+        print(e)
         return jsonify({"error": f"An error occurred while submitting the report: {str(e)}"}), 500
     
 
 @api.route('/reported-vulnerabilities', methods=['GET'])
+@jwt_required()
 def get_reported_vulnerabilities():
     """
     Allows users to retrieve the reported vulnerabilities they have submitted.
     """
     from .models import ReportedVulnerability
 
+    user = get_jwt_identity()
+    user_id = user['id']
+
     try:
         # Fetch all reported vulnerabilities by the logged-in user
-        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=current_user.id).all()
+        reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=user_id).all()
         # reported_vulnerabilities = ReportedVulnerability.query.filter_by(user_id=1).all()
-
+        print(reported_vulnerabilities)
         # Format the response
         vulnerabilities_list = [
             {
