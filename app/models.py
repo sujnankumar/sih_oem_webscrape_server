@@ -117,6 +117,8 @@ class Vulnerabilities(db.Model):
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True)
 
+    def __init__(self, product_name_version, oem_name, severity_level, vulnerability, remediation, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
+        
     def __init__(
         self,
         product_name_version,
