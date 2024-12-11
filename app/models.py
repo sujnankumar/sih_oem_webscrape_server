@@ -1,7 +1,9 @@
 from app import db
 from flask_login import UserMixin
 from datetime import datetime
+import pytz
 
+ist = pytz.timezone('Asia/Kolkata')
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -66,7 +68,7 @@ class ScrapingLogs(db.Model):
     website_url = db.Column(db.String(255), nullable=False) 
     status = db.Column(db.String(50), nullable=False)  # 'success' or 'error'
     error_message = db.Column(db.String(500), nullable=True)  # Nullable in case of success
-    scraped_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    scraped_at = db.Column(db.DateTime, default=datetime.now(ist), nullable=False)
 
     # Relationship to the OEMWebsite model
     website = db.relationship('OEMWebsite', backref=db.backref('scraping_logs', lazy=True))
@@ -76,7 +78,7 @@ class ScrapingLogs(db.Model):
         self.status = status
         self.error_message = error_message
         self.website_id = website_id
-        self.scraped_at = datetime.utcnow()
+        self.scraped_at = datetime.now(ist)
 
     def __repr__(self):
         return f"<ScrapingLog {self.website_url}, {self.status}>"
