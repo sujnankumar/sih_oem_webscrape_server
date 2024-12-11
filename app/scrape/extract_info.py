@@ -5,7 +5,7 @@ import json
 import re
 from .vuln_details import Vulnerability, AdditionalDetails 
 
-today = datetime(2024, 11, 26)
+today = datetime(2024, 12, 10)
 
 def get_base_url(full_url: str) -> str:
     """Extract the base URL (scheme + netloc) from a full URL."""
@@ -85,7 +85,7 @@ def extract_info_from_results(documents, OPENAI_API_KEY):
             {
                 "role": "user",
                 "content": (
-                    f"Document Section:\n{doc}\n\n"
+                    f"Document Section:\n{doc.page_content}\n\n"
                     "Extracted Information Format:\n"
                     "[\n"
                     "  {\n"
@@ -102,14 +102,18 @@ def extract_info_from_results(documents, OPENAI_API_KEY):
             },
         ]
         try:
-            response = client.chat.completions.create(
+            stream = client.chat.completions.create(
                 messages=messages,
                 model="gpt-4o-mini",
                 temperature=0,
-                max_tokens=1000,
+                stream=True,
             )
-            output = response.choices[0].message.content.strip()
-            
+            output = ""
+
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    output += chunk.choices[0].delta.content
+
             # Ensure link domain matches the base_url
             if "'Link for Extra Info':" in output:
                 link_start = output.find("'Link for Extra Info':") + len("'Link for Extra Info': ")
@@ -133,7 +137,6 @@ def extract_info_from_results(documents, OPENAI_API_KEY):
 def get_relevant_links(document, OPENAI_API_KEY, target_date = datetime(2024, 11, 26).strftime("%d %B %Y")):
     client = OpenAI(api_key=OPENAI_API_KEY)
     links = document.metadata.get("links", "")
-    print(links)
     messages = [
         {
             "role": "system",
@@ -154,7 +157,7 @@ def get_relevant_links(document, OPENAI_API_KEY, target_date = datetime(2024, 11
             max_tokens=1000
         )
         output = response.choices[0].message.content.strip()
-        print(output)
+
         ret_links = output.split(", ")
     except Exception as e:
         print(f"Error processing document: {e}")

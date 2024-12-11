@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from .document import Document
 import html2text
 
-today = datetime(2024, 11, 26)
+today = datetime(2024, 12, 10)
 date_formats = [
         '%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%Y', '%Y %b %d', '%m-%d-%Y',
         '%d %B %Y', '%B %d, %Y', '%b %d, %Y', '%B %Y', '%b %Y', "%d %b %Y"
@@ -92,7 +92,6 @@ def extract_relevant_snippets(
 
     # Extract snippets
     seen_snippets = set()
-    print(elements)
     snippets = find_relevant_snippets(elements, seen_snippets)
 
     return snippets
@@ -217,6 +216,7 @@ def transfer_documents(documents):
         for varStart, varEnd in processed_ranges:  # Combine the relevant snippets
             final_doc += '\n'.join(cleaned_lines[varStart:varEnd])
             final_doc = final_doc + "\n" + "="*50 + "\n"
+
         document = Document(page_content=final_doc, metadata=doc.metadata, contains_listing=doc.contains_listing, contains_date=doc.contains_date, contains_details=doc.contains_details)
         results.append(document)
     return results
