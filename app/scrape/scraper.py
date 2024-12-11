@@ -1,5 +1,8 @@
 from playwright.sync_api import sync_playwright
 import re
+from .. logging_functions import log_scraping_start
+import logging
+
 
 
 def get_page_content(url):
@@ -40,8 +43,9 @@ def check_for_cve(content):
     cve_pattern = re.compile(r'CVE-2024-\d{4,5}')
     return cve_pattern.search(content)
 
-def scrape_page(documents):
+def scrape_page(app,documents):
     for doc in documents:
+        log_scraping_start(app,doc.metadata["source"],logging)
         print(doc.metadata["source"])
         page_content = get_page_content(doc.metadata["source"])
         if page_content:

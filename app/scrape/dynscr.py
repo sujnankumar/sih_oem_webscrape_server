@@ -5,10 +5,13 @@ from .html_transform import transfer_documents, custom_transform, convert_doc_wi
 from .extract_info import extract_info_from_results, extract_vulnerability_info, get_relevant_links, get_base_url, is_relative_url
 from .document import Document
 import tiktoken
+from ..logging_functions import log_scraping_start, log_scraping_end
 
 def load_api_key():
     load_dotenv()
+    print(os.getenv("OPENAI_API_KEY"))
     return os.getenv("OPENAI_API_KEY")
+
 
 def initialize_documents():
     return [
@@ -27,9 +30,9 @@ def process_documents_with_listings(documents):
                 documents_listing.append(Document(page_content="", metadata={"source": get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, 'id': doc.metadata['id']}, contains_listing=False, contains_date=False, contains_details=doc.contains_details))
     return documents_listing
 
-def scrape_documents(documents):
+def scrape_documents(app,documents):
     # website-id,status,last-scraped
-    documents = scrape_page(documents)
+    documents = scrape_page(app,documents)
     return documents
 
 def transform_documents(documents):
@@ -51,13 +54,14 @@ def gather_more_links(docs_extracted_info):
 def create_further_documents(more_links):
     return [Document(page_content="", metadata={"source": link, "contains_cve": False}, contains_listing=False, contains_date=False) for link in more_links]
 
-def dynamic_scraper(initial_documents):
+def dynamic_scraper(app,initial_documents):
     api_key = load_api_key()
 
-    documents = scrape_documents(initial_documents)
+
+    documents = scrape_documents(app,initial_documents)
 
     documents_listing = process_documents_with_listings(documents)
-    documents += scrape_documents(documents_listing)
+    documents += scrape_documents(app,documents_listing)
     
     docs_transformed = transform_documents(documents)
 
@@ -69,7 +73,7 @@ def dynamic_scraper(initial_documents):
     more_links = gather_more_links(docs_extracted_info)
     further_documents = create_further_documents(more_links)
 
-    documents = scrape_documents(further_documents)
+    documents = scrape_documents(app,further_documents)
     docs_transformed = transform_documents(documents) + docs_without_details
     
     ret_results = []
@@ -77,5 +81,5 @@ def dynamic_scraper(initial_documents):
         extracted_info = extract_vulnerability_info(doc, api_key)
         for info in extracted_info:
             ret_results.append([info, doc.metadata['source']])
-
+    print(ret_results)
     return ret_results

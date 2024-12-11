@@ -85,12 +85,12 @@ class ScrapingLogs(db.Model):
     # Relationship to the OEMWebsite model
     website = db.relationship('OEMWebsite', backref=db.backref('scraping_logs', lazy=True))
 
-    def __init__(self, website_url, status, error_message=None, website_id=None):
+    def __init__(self, website_url, status, error_message=None, website_id=None, scraped_at=datetime.now(ist)):
         self.website_url = website_url
         self.status = status
         self.error_message = error_message
         self.website_id = website_id
-        self.scraped_at = datetime.now(ist)
+        self.scraped_at = scraped_at
 
     def __repr__(self):
         return f"<ScrapingLog {self.website_url}, {self.status}>"
