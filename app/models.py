@@ -9,8 +9,6 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    otp = db.Column(db.String(6), nullable=True)
-    otp_generated_at = db.Column(db.DateTime, nullable=True)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
     # Fields for user interest areas
@@ -29,6 +27,20 @@ class User(UserMixin, db.Model):
     def get_id(self):
         """Override `get_id` to return a string (required by Flask-Login)."""
         return str(self.id)
+    
+
+class OTP(db.Model):
+    __tablename__ = 'otp'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), nullable=False)  # Email associated with the OTP
+    otp = db.Column(db.String(6), nullable=False)  # 6-digit OTP
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)  # Timestamp of OTP creation
+
+    def __init__(self, email, otp):
+        self.email = email
+        self.otp = otp
+
 
 
 class OEMWebsite(db.Model):

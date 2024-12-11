@@ -13,6 +13,8 @@ from fpdf import FPDF
 import os
 from .config import Config
 
+import random
+
 bp = Blueprint('auth', __name__)
 api = Blueprint('api', __name__)
 
@@ -39,9 +41,92 @@ def load_user(user_id):
     from .models import User  # Avoid circular import by importing inside the function
     return User.query.get(int(user_id))
 
+
+@bp.route('/get_otp', methods=['POST'])
+def get_otp():
+    """
+    Generate and store a new OTP for the given email.
+    """
+    import random
+
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({"error": "Missing email field"}), 400
+
+    # Check if email is already registered in User table
+    from .models import User
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already registered"}), 400
+    
+    from .models import OTP
+
+    # Generate a random 6-digit OTP
+    otp = random.randint(100000, 999999)
+
+    # Save the new OTP record
+    new_otp = OTP(email=email, otp=str(otp))
+    db.session.add(new_otp)
+    db.session.commit()
+
+    # Send OTP to user's email
+    subject = "Your OTP Code for Registration"
+    message_body = f"\nYour OTP code is {otp}.\n It is valid for 10 minutes.\nDo not share this with anyone!"
+    msg = Message(subject=subject, recipients=[email], body=message_body)
+    mail.send(msg)
+
+    return jsonify({"message": "OTP sent successfully"}), 200
+
+
+@bp.route('/verify_otp', methods=['POST'])
+def verify_otp():
+    """
+    Verify the latest OTP for the given email.
+    """
+    data = request.get_json()
+    email = data.get('email')
+    otp = data.get('otp')
+
+    if not email or not otp:
+        return jsonify({"error": "Missing email or OTP"}), 400
+    
+    from .models import OTP
+
+    # Fetch the latest OTP for the given email
+    latest_otp_record = OTP.query.filter_by(email=email).order_by(OTP.created_at.desc()).first()
+
+    if not latest_otp_record:
+        print("error OTP not generated for this email")
+        return jsonify({"error": "OTP not generated for this email"}), 404
+
+    # Check if the entered OTP matches the latest one
+    if latest_otp_record.otp != otp:
+        # Check if the entered OTP is older
+        older_otp_record = OTP.query.filter_by(email=email, otp=otp).first()
+        if older_otp_record:
+            print({"error": "This is an old OTP. Please use the latest OTP sent to your email."})
+            return jsonify({"error": "This is an old OTP. Please use the latest OTP sent to your email."}), 403
+        print({"error": "Invalid OTP"})
+        return jsonify({"error": "Invalid OTP"}), 401
+
+    # Check if the latest OTP is expired
+    if (datetime.utcnow() - latest_otp_record.created_at).seconds > 600:
+        print("otp expired")
+        return jsonify({"error": "The OTP has expired. Please request a new one."}), 403
+
+    # OTP is valid and not expired, proceed with email verification
+    
+    return jsonify({"message": "OTP verified successfully"}), 200
+
+
+
 @bp.route('/register', methods=['POST'])
 def register():
-    from .models import User  # Import User inside the function
+    """
+    Register a new user after verifying the OTP.
+    """
+    from .models import User
 
     data = request.get_json()
     username = data.get('username')
@@ -51,14 +136,17 @@ def register():
     if not username or not email or not password:
         return jsonify({'message': 'Missing fields'}), 400
 
-    # Check if email or username already exists
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already registered"}), 400
-    
+    # Check if email is verified in the database
+    user = User.query.filter_by(email=email).first()
+    if user:
+        return jsonify({"error": "User with this email already exists"}), 404
+
+
+    # Check if username is already taken
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username already taken"}), 400
 
-    # Hash the password using bcrypt
+    # Hash the password
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     # Create and save new user
@@ -68,80 +156,12 @@ def register():
 
     return jsonify({'message': 'Registration successful!'}), 201
 
-# @bp.route('/login', methods=['POST'])
-# def login():
-#     from .models import User  # Import User inside the function
-
-#     data = request.get_json()
-#     email = data.get('email')
-#     password = data.get('password')
-#     otp = data.get('otp')
-
-#     if not email or not password:
-#         return jsonify({"error": "Missing required fields"}), 400
-    
-#     stored_otp = User.query.filter_by(email=email).first().otp
-#     stored_otp_generated_at = User.query.filter_by(email=email).first().otp_generated_at
-
-#     if not stored_otp or not stored_otp_generated_at:
-#         return jsonify({"error": "OTP not generated"}), 400
-    
-#     if (datetime.now() - stored_otp_generated_at).seconds > 600:
-#         return jsonify({"error": "OTP expired"}), 401
-
-#     if stored_otp != otp:
-#         return jsonify({"error": "Invalid OTP"}), 401
-
-#     user = User.query.filter_by(email=email).first()
-    
-#     if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-#         # Create a JWT token
-#         access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
-#         return jsonify({
-#             'message': 'Login successful!',
-#             'access_token': access_token,
-#             'user': {
-#                 'username': user.username,
-#                 'email': user.email
-#             }
-#         }), 200
-
-#     return jsonify({'message': 'Invalid email or password'}), 401
-
-@bp.route('/verify-otp', methods=['POST'])
-def verify_otp():
-    from .models import User
-
-    data = request.get_json()
-    email = data.get('email')
-    otp = data.get('otp')
-
-    if not email or not otp:
-        return jsonify({"error": "Missing required fields"}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    stored_otp = user.otp
-    stored_otp_generated_at = user.otp_generated_at
-
-    if not stored_otp or not stored_otp_generated_at:
-        return jsonify({"error": "OTP not generated"}), 400
-
-    if (datetime.now() - stored_otp_generated_at).seconds > 600:
-        return jsonify({"error": "OTP expired"}), 401
-
-    if stored_otp != otp:
-        return jsonify({"error": "Invalid OTP"}), 401
-
-    # Mark OTP as verified (could use session or database)
-    session['otp_verified'] = email  # Save the email of verified user in session
-    return jsonify({"message": "OTP verified successfully"}), 200
-
 
 @bp.route('/login', methods=['POST'])
 def login():
+    """
+    Login a user with email and password.
+    """
     from .models import User
 
     data = request.get_json()
@@ -149,60 +169,27 @@ def login():
     password = data.get('password')
 
     if not email or not password:
-        return jsonify({"error": "Missing required fields"}), 400
+        return jsonify({"error": "Missing email or password"}), 400
 
-    # Check if OTP was verified
-    if session.get('otp_verified') != email:
-        return jsonify({"error": "OTP not verified"}), 403
-
+    # Fetch the user
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-        access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email, 'is_admin': user.is_admin})
-        return jsonify({
-            'message': 'Login successful!',
-            'access_token': access_token,
-            'user': {
-                'username': user.username,
-                'email': user.email
-            }
-        }), 200
+    # Verify password
+    if not bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+        return jsonify({'error': 'Invalid email or password'}), 401
 
-    return jsonify({'message': 'Invalid email or password'}), 401
-
-@bp.route('/get_otp', methods=['POST'])
-def get_otp():
-    from .models import User  # Import User inside the function
-    import random
-
-    data = request.get_json()
-    email = data.get('email')
-
-    if not email:
-        return jsonify({"error": "Missing email field"}), 400
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user:
-        return jsonify({"error": "Email not found"}), 404
-
-    # Generate a random 6-digit OTP
-    otp = random.randint(100000, 999999)
-
-    # Save the OTP to the user's record (assuming there's a field for it)
-    user.otp = otp
-    print(user.otp)
-    user.otp_generated_at = datetime.now()
-    db.session.commit()
-
-    subject = "Your OTP Code for Login on Vulnerability Tracker"
-    message_body = f"\nYour OTP code is {otp}.\n It is valid for 10 minutes.\nDo not share this with anyone!"
-    msg = Message(subject=subject, recipients=[email], body=message_body)
-    mail.send(msg)
-
-    return jsonify({"message": "OTP sent successfully"}), 200
+    # Create access token
+    access_token = create_access_token(identity={'id': user.id, 'username': user.username, 'email': user.email})
+    return jsonify({
+        'message': 'Login successful!',
+        'access_token': access_token,
+        'user': {
+            'username': user.username,
+            'email': user.email
+        }
+    }), 200
 
 @bp.route('/logout', methods=['POST'])
 @jwt_required()
