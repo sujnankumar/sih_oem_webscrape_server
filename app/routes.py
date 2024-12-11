@@ -962,3 +962,31 @@ def take_action_on_report(report_id):
 
     except Exception as e:
         return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500
+
+@api.route('api/admin/dashboard', methods=['GET'])
+@jwt_required()
+def admin_dashboard():
+    from .models import OEMWebsite, ScrapingLogs
+    #get the website name, last_scraped and status
+    try:
+        results = db.session.query(
+            OEMWebsite.oem_name,
+            OEMWebsite.last_scraped,
+            ScrapingLogs.status
+        ).join(ScrapingLogs, OEMWebsite.id == ScrapingLogs.website_id).all()
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    # Build the list with the combined data
+    website_list = [
+        {"website_name": oem_name, "last_scraped": last_scraped, "status": status}
+        for oem_name, last_scraped, status in results
+    ]
+
+    return jsonify(website_list),200
+        
+
+
+
+    
