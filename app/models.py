@@ -85,17 +85,17 @@ class Vulnerabilities(db.Model):
     __tablename__ = 'vulnerabilities'
 
     id = db.Column(db.Integer, primary_key=True)
-    product_name = db.Column(db.String(150), nullable=False)
-    product_version = db.Column(db.String(100), nullable=True)
-    oem_name = db.Column(db.String(150), nullable=False)
+    product_name_version = db.Column(db.Text, nullable=False)
+    vendor = db.Column(db.String(150), nullable=False)
     severity_level = db.Column(db.Text, nullable=False)  # Critical or High
     vulnerability = db.Column(db.Text, nullable=False)
-    mitigation_strategy = db.Column(db.Text, nullable=False)
+    remidiation = db.Column(db.Text, nullable=False)
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    base_score = db.Column(db.Float, nullable=True)
-    temporal_score = db.Column(db.Float, nullable=True)
+    cvss_score = db.Column(db.Float, nullable=True)
+    reference = db.Column(db.Text, nullable=True)
+    impact = db.Column(db.Text, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True) 
