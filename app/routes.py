@@ -440,30 +440,30 @@ def insert_scraped_data():
 
 # Route to retrieve OEM website scraped data (protected by JWT)
 @api.route('/get_scraped_data', methods=['GET'])
-# @jwt_required()
-def get_scraped_data():
-    from .models import Vulnerabilities # Import the Vulnerabilities model inside the function
+def get_scraped_data_summary():
+    """
+    Retrieve a summary of vulnerability data with selected fields.
+    """
+    from .models import Vulnerabilities  # Import the Vulnerabilities model inside the function
 
     # Retrieve all entries from the Vulnerabilities table
     scraped_data = Vulnerabilities.query.all()
 
-    # Serialize the data to JSON
+    # Serialize the data to JSON with specified fields
     data_list = [
         {
-            'product_name': data.product_name,
-            'product_version': data.product_version,
-            'oem_name': data.oem_name,
+            'product_name_version': data.product_name_version,
+            'vendor': data.vendor,
             'severity_level': data.severity_level,
             'vulnerability': data.vulnerability,
-            'mitigation_strategy': data.mitigation_strategy,
-            'published_date': data.published_date,
-            'unique_id': data.unique_id,
-            'scraped_date': data.scraped_date
+            'published_date': data.published_date.strftime('%Y-%m-%d') if data.published_date else None,
+            'reference': data.reference
         }
         for data in scraped_data
     ]
 
     return jsonify({'data': data_list}), 200
+
 
 @api.route('/search', methods=['POST'])
 def search():
