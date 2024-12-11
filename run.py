@@ -10,12 +10,11 @@ def run_app():
     app = create_app()
 
     # Start the APScheduler in a separate thread so it doesn't block the main app
-    #scheduler_thread = Thread(target=start_scheduler)
-    #scheduler_thread.daemon = True  # Ensure this thread exits when the app exits
-    #scheduler_thread.start()
+    scheduler_thread = Thread(target=start_scheduler)
+    scheduler_thread.daemon = True  # Ensure this thread exits when the app exits
+    scheduler_thread.start()
 
     with app.app_context():
-        website_update.run_now()
         app.run(debug=True, use_reloader=False)  # Don't use reloader to avoid starting multiple threads
         
 
