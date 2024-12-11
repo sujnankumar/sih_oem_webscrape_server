@@ -7,13 +7,12 @@ import html2text
 today = datetime(2024, 11, 26)
 date_formats = [
         '%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%Y', '%Y %b %d', '%m-%d-%Y',
-        '%d %B %Y', '%B %d, %Y', '%b %d, %Y', '%B %Y', '%b %Y'
+        '%d %B %Y', '%B %d, %Y', '%b %d, %Y', '%B %Y', '%b %Y', "%d %b %Y"
     ]
 
 def custom_transform(documents):
     for doc in documents:
         soup = BeautifulSoup(doc.page_content, 'html.parser')
-    
         for tag in soup.find_all(True):
             if tag.name == 'a':  # Preserve link-related attributes for <a> tags
                 tag.attrs = {key: tag.attrs[key] for key in ['href', 'target'] if key in tag.attrs}
@@ -24,7 +23,6 @@ def custom_transform(documents):
         for tag in soup(["style", "head", "footer", "script", "iframe"]):
             tag.decompose()
         doc.page_content = soup.prettify()
-        
         doc.page_content = ''.join(extract_relevant_snippets(doc.page_content, doc.contains_date, ['critical', 'high']))
     
     return transfer_documents(documents)
@@ -94,6 +92,7 @@ def extract_relevant_snippets(
 
     # Extract snippets
     seen_snippets = set()
+    print(elements)
     snippets = find_relevant_snippets(elements, seen_snippets)
 
     return snippets

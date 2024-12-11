@@ -71,7 +71,9 @@ def dynamic_scraper(initial_documents):
     documents = scrape_documents(further_documents)
     docs_transformed = transform_documents(documents) + docs_without_details
     
+    ret_results = []
     for doc in docs_transformed:
         extracted_info = extract_vulnerability_info(doc, api_key)
         for info in extracted_info:
-            print(type(info))
+            ret_results.append(info)
+    return ret_results

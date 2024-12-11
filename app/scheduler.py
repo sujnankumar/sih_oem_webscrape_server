@@ -5,9 +5,30 @@ from time import sleep
 from threading import Thread
 from flask import current_app
 from app import create_app, db
-from app.models import OEMWebsite
+from app.models import OEMWebsite, Vulnerabilities
 from app.scrape.dynscr import dynamic_scraper
 from app.scrape.document import Document
+from app.scrape.vuln_details import AdditionalDetails
+from datetime import datetime
+
+def map_additional_details_to_vulnerability(additional_details: AdditionalDetails, oem_website_id: int) -> Vulnerabilities:
+    # Create a Vulnerabilities instance
+    vulnerability = Vulnerabilities(
+        unique_id=additional_details.CVE_ID,
+        product_name_version=', '.join(additional_details.Affected_Products_with_Version) if additional_details.Affected_Products_with_Version else None,
+        vendor=additional_details.Vendor or "Unknown Vendor",
+        severity_level=additional_details.Severity_Level or "Unknown",
+        vulnerability=additional_details.Summary or "N/A",
+        remidiation=additional_details.Remediation or "N/A",
+        impact=additional_details.Impact_or_Exploitation or "N/A",
+        cvss_score=float(additional_details.CVSS_Score) if additional_details.CVSS_Score else None,
+        reference=', '.join(additional_details.References) if additional_details.References else None,
+        additional_details=additional_details.model_dump(by_alias=True),
+        published_date=datetime.utcnow(),  # Replace with actual publication date if available
+        oem_website_id=oem_website_id,
+    )
+    return vulnerability
+
 
 def job_listener(event):
     """
@@ -17,10 +38,8 @@ def job_listener(event):
         print(f"Job {event.job_id} failed!")
     else:
         print(f"Job {event.job_id} completed successfully!")
-        print(f"Job result (List): {event.retval}")  # This will print the list returned by dynamic_scraper
+        print(f"Job result (List): {event.retval}")  # Print the list returned by dynamic_scraper
 
-        # Process the list (for example, iterate over the items in the list)
-        print(event.retval)
 
 def start_scheduler():
     """
@@ -33,10 +52,10 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
 
     # Use the Flask application context to query the database
-    with app.app_context():  # Ensure we're in the app context
+    with app.app_context():
         oem_website = OEMWebsite.query.all()
-        print(oem_website)
-        
+        print("OEM Websites:", oem_website)
+
     # Create documents based on the OEMWebsite data
     documents = []
     for website in oem_website:
@@ -53,8 +72,8 @@ def start_scheduler():
 
     # Schedule the scraping task to run every 60 minutes
     scheduler.add_job(
-        func=lambda: dynamic_scraper(documents),  # Use lambda to pass documents to the function
-        trigger=IntervalTrigger(minutes=60),  # Adjusted to run every 60 minutes
+        func=lambda: dynamic_scraper(documents),  # Properly wrap the function to pass documents
+        trigger=IntervalTrigger(seconds=10),  # Use a shorter interval for testing
         id="scraping_job",  # Unique job ID
         name="Scraping Job",  # Optional name
         replace_existing=True  # Replace the job if it already exists
@@ -62,6 +81,8 @@ def start_scheduler():
 
     # Start the scheduler
     scheduler.start()
+
+    print("Scheduler started.")
 
     # Function to keep the scheduler running in the background
     def keep_alive():
