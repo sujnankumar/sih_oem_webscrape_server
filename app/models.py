@@ -1,7 +1,9 @@
 from app import db
 from flask_login import UserMixin
 from datetime import datetime
+import pytz
 
+ist = pytz.timezone('Asia/Kolkata')
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -9,8 +11,6 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    otp = db.Column(db.String(6), nullable=True)
-    otp_generated_at = db.Column(db.DateTime, nullable=True)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
     # Fields for user interest areas
@@ -29,6 +29,20 @@ class User(UserMixin, db.Model):
     def get_id(self):
         """Override `get_id` to return a string (required by Flask-Login)."""
         return str(self.id)
+    
+
+class OTP(db.Model):
+    __tablename__ = 'otp'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), nullable=False)  # Email associated with the OTP
+    otp = db.Column(db.String(6), nullable=False)  # 6-digit OTP
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)  # Timestamp of OTP creation
+
+    def __init__(self, email, otp):
+        self.email = email
+        self.otp = otp
+
 
 
 class OEMWebsite(db.Model):
@@ -44,6 +58,7 @@ class OEMWebsite(db.Model):
     contains_listing = db.Column(db.Boolean, default=False, nullable=False)
     contains_date = db.Column(db.Boolean, default=False, nullable=False)
     contains_details = db.Column(db.Boolean, default=False, nullable=False)
+    website_hash = db.Column(db.String(100), nullable=True)
 
     def __init__(self, oem_name, website_url, scrape_frequency=60, last_scraped=None, is_it=True, is_official=True, contains_listing=False, contains_date=False, contains_details=False):
         self.oem_name = oem_name
@@ -65,7 +80,7 @@ class ScrapingLogs(db.Model):
     website_url = db.Column(db.String(255), nullable=False) 
     status = db.Column(db.String(50), nullable=False)  # 'success' or 'error'
     error_message = db.Column(db.String(500), nullable=True)  # Nullable in case of success
-    scraped_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    scraped_at = db.Column(db.DateTime, default=datetime.now(ist), nullable=False)
 
     # Relationship to the OEMWebsite model
     website = db.relationship('OEMWebsite', backref=db.backref('scraping_logs', lazy=True))
@@ -75,7 +90,7 @@ class ScrapingLogs(db.Model):
         self.status = status
         self.error_message = error_message
         self.website_id = website_id
-        self.scraped_at = datetime.utcnow()
+        self.scraped_at = datetime.now(ist)
 
     def __repr__(self):
         return f"<ScrapingLog {self.website_url}, {self.status}>"
@@ -100,9 +115,9 @@ class Vulnerabilities(db.Model):
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True) 
 
-    def __init__(self, product_name, product_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
-        self.product_name = product_name
-        self.product_version = product_version
+    def __init__(self, product_name_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
+        
+        self.product_name_version = product_name_version
         self.oem_name = oem_name
         self.severity_level = severity_level
         self.vulnerability = vulnerability
