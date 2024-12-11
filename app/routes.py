@@ -467,24 +467,41 @@ def get_scraped_data_summary():
 
 @api.route('/search', methods=['POST'])
 def search():
+    """
+    Search vulnerabilities across multiple fields.
+    """
     from .models import Vulnerabilities
 
-    product_name = request.form.get('product_name').lower()
-    vulnerabilities = Vulnerabilities.query.filter(Vulnerabilities.product_name.ilike(f'%{product_name}%')).all()
+    # Get the search term from the request
+    search_term = request.form.get('search_term', '').lower()
 
+    if not search_term:
+        return jsonify({"error": "Search term is required"}), 400
+
+    # Query the database for entries matching the search term in any relevant field
+    vulnerabilities = Vulnerabilities.query.filter(
+        db.or_(
+            Vulnerabilities.product_name_version.ilike(f'%{search_term}%'),
+            Vulnerabilities.vendor.ilike(f'%{search_term}%'),
+            Vulnerabilities.severity_level.ilike(f'%{search_term}%'),
+            Vulnerabilities.vulnerability.ilike(f'%{search_term}%'),
+            Vulnerabilities.reference.ilike(f'%{search_term}%')
+        )
+    ).all()
+
+    # Serialize the results
     results = [
         {
-            "product_name": vuln.product_name,
-            "product_version": vuln.product_version,
-            "oem_name": vuln.oem_name,
+            "product_name_version": vuln.product_name_version,
+            "vendor": vuln.vendor,
             "severity_level": vuln.severity_level,
             "vulnerability": vuln.vulnerability,
-            "mitigation_strategy": vuln.mitigation_strategy,
-            "published_date": vuln.published_date,
-            "unique_id": vuln.unique_id
+            "published_date": vuln.published_date.strftime('%Y-%m-%d') if vuln.published_date else None,
+            "reference": vuln.reference
         }
         for vuln in vulnerabilities
     ]
+
     return jsonify(results)
 
 
