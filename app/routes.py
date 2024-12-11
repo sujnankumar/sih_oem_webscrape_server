@@ -487,6 +487,28 @@ def search():
     ]
     return jsonify(results)
 
+
+
+@api.route('/get_it_ot_number', methods=['GET'])
+def it_ot_number():
+    from .models import OEMWebsite
+    try:
+
+        # Get counts of IT and OT websites
+        it_count = OEMWebsite.query.filter_by(is_it=True).count()
+        ot_count = OEMWebsite.query.filter_by(is_it=False).count()
+        # If both counts are 0, return a 404 error
+        if it_count == 0 and ot_count == 0:
+            return jsonify({"message": "No data found"}), 404
+
+        # Return counts as JSON response
+        return jsonify({"it_count": it_count, "ot_count": ot_count}), 200
+
+    except Exception as e:
+        # Handle unexpected errors, e.g., database connection issues
+        return jsonify({"error": str(e)}), 500
+
+
 @api.route('/suggestions', methods=['GET'])
 def suggestions():
     from .models import Vulnerabilities
