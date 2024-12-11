@@ -96,6 +96,8 @@ class ScrapingLogs(db.Model):
         return f"<ScrapingLog {self.website_url}, {self.status}>"
 
 
+from datetime import datetime
+
 class Vulnerabilities(db.Model):
     __tablename__ = 'vulnerabilities'
 
@@ -104,7 +106,7 @@ class Vulnerabilities(db.Model):
     vendor = db.Column(db.String(150), nullable=False)
     severity_level = db.Column(db.Text, nullable=False)  # Critical or High
     vulnerability = db.Column(db.Text, nullable=False)
-    remidiation = db.Column(db.Text, nullable=False)
+    remediation = db.Column(db.Text, nullable=False)
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
@@ -113,19 +115,36 @@ class Vulnerabilities(db.Model):
     impact = db.Column(db.Text, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
-    additional_details = db.Column(db.JSON, nullable=True) 
-
-    def __init__(self, product_name_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
+    additional_details = db.Column(db.JSON, nullable=True)
         
+    def __init__(
+        self,
+        product_name_version,
+        severity_level,
+        vendor,
+        vulnerability,
+        remediation,
+        published_date,
+        unique_id,
+        oem_website_id,
+        scraped_date=None,  # Optional parameter with default
+        impact=None,
+        cvss_score=None,
+        reference=None,
+        additional_details=None,
+    ):
         self.product_name_version = product_name_version
-        self.oem_name = oem_name
         self.severity_level = severity_level
+        self.vendor = vendor
         self.vulnerability = vulnerability
-        self.mitigation_strategy = mitigation_strategy
+        self.remediation = remediation
         self.published_date = published_date
         self.unique_id = unique_id
-        self.scraped_date = scraped_date
         self.oem_website_id = oem_website_id
+        self.scraped_date = scraped_date or datetime.utcnow()  # Set to current time if not provided
+        self.impact = impact
+        self.cvss_score = cvss_score
+        self.reference = reference
         self.additional_details = additional_details
 
 

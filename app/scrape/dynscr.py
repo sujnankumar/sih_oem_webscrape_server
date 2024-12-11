@@ -27,7 +27,9 @@ def process_documents_with_listings(documents):
         if doc.contains_listing:
             doc_all_links = convert_doc_without_cve(doc)
             for link in doc_all_links.metadata['links'][:1]:
-                documents_listing.append(Document(page_content="", metadata={"source": get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, 'id': doc.metadata['id']}, contains_listing=False, contains_date=False, contains_details=doc.contains_details))
+                new_doc = Document(page_content="", metadata={"source": get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, 'id': doc.metadata['id']}, contains_listing=False, contains_date=False, contains_details=doc.contains_details)
+                print(new_doc)
+                documents_listing.append(new_doc)
     return documents_listing
 
 def scrape_documents(app,documents):
@@ -48,11 +50,12 @@ def gather_more_links(docs_extracted_info):
         if info:
             for entry in info:
                 link = entry.get("Link for more details", "")
-                more_links.add(get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link)
+                more_links.add((get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, doc.metadata['id']))
     return more_links
 
 def create_further_documents(more_links):
-    return [Document(page_content="", metadata={"source": link, "contains_cve": False}, contains_listing=False, contains_date=False) for link in more_links]
+    for link, id in more_links:
+        return [Document(page_content="", metadata={"source": link, "contains_cve": False, "id": id}, contains_listing=False, contains_date=False, contains_details=False)]
 
 def dynamic_scraper(app,initial_documents):
     api_key = load_api_key()
@@ -80,6 +83,6 @@ def dynamic_scraper(app,initial_documents):
     for doc in docs_transformed:
         extracted_info = extract_vulnerability_info(doc, api_key)
         for info in extracted_info:
-            ret_results.append([info, doc.metadata['source']])
-    print(ret_results)
+            ret_results.append([info, doc.metadata['id']])
+
     return ret_results

@@ -10,7 +10,7 @@ class AdditionalDetails(BaseModel):
     Affected_Products_with_Version: Optional[List[str]] = Field(None, alias="Affected Products with Version")
     Impact_or_Exploitation: Optional[str] = Field(None, alias="Impact or Exploitation")
     Vulnerability_Type: Optional[str] = Field(None, alias="Vulnerability Type")
-    CVSS_Score: Optional[str] = Field(None, alias="CVSS Score")
+    CVSS_Base_Score: Optional[str] = Field(None, alias="CVSS Base Score")
     References: Optional[List[str]] = None
     Vendor: Optional[str] = Field(None, alias="Vendor")
     Other_Relevant_Info: Optional[str] = Field(None, alias="Other Relevant Info")
