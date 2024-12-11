@@ -15,7 +15,7 @@ def run_app():
     #scheduler_thread.start()
 
     with app.app_context():
-        website_update.run_now()
+        # website_update.run_now()
         app.run(debug=True, use_reloader=False)  # Don't use reloader to avoid starting multiple threads
         
 
