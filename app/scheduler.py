@@ -100,7 +100,7 @@ def start_scheduler():
     scheduler.add_listener(lambda event: job_listener(event, app), EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
     scheduler.add_job(
-        func=lambda: dynamic_scraper(documents),
+        func=lambda: dynamic_scraper(app,documents),
         trigger=IntervalTrigger(seconds=10),
         id="scraping_job",
         name="Scraping Job",
