@@ -44,6 +44,7 @@ class OEMWebsite(db.Model):
     contains_listing = db.Column(db.Boolean, default=False, nullable=False)
     contains_date = db.Column(db.Boolean, default=False, nullable=False)
     contains_details = db.Column(db.Boolean, default=False, nullable=False)
+    website_hash = db.Column(db.String(100), nullable=True)
 
     def __init__(self, oem_name, website_url, scrape_frequency=60, last_scraped=None, is_it=True, is_official=True, contains_listing=False, contains_date=False, contains_details=False):
         self.oem_name = oem_name
