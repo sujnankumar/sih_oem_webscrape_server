@@ -19,12 +19,6 @@ def job_listener(event):
         print(f"Job {event.job_id} completed successfully!")
         print(f"Job result (List): {event.retval}")  # Print the list returned by dynamic_scraper
 
-        # Process the list (for example, iterate over the items in the list)
-        if isinstance(event.retval, list):
-            for item in event.retval:
-                print(f"Processed document: {item.metadata['source']}")
-        else:
-            print(f"Unexpected result type: {type(event.retval)}")
 
 def start_scheduler():
     """
