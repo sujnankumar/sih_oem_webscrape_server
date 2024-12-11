@@ -100,9 +100,9 @@ class Vulnerabilities(db.Model):
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True) 
 
-    def __init__(self, product_name, product_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
-        self.product_name = product_name
-        self.product_version = product_version
+    def __init__(self, product_name_version, oem_name, severity_level, vulnerability, mitigation_strategy, published_date, unique_id, scraped_date, oem_website_id, additional_details=None):
+        
+        self.product_name_version = product_name_version
         self.oem_name = oem_name
         self.severity_level = severity_level
         self.vulnerability = vulnerability
