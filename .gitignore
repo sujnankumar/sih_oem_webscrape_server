@@ -10,3 +10,4 @@
 /app/scrape/.env
 /tutorials/*
 app/notes.ipynb
+/logs/*
