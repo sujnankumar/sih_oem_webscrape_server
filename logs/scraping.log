@@ -64,3 +64,46 @@
 2024-12-09 01:38:08,803 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on http://127.0.0.1:5000
 2024-12-09 01:38:08,803 - INFO - [33mPress CTRL+C to quit[0m
+2024-12-11 20:19:49,645 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-12-11 20:19:49,645 - INFO - [33mPress CTRL+C to quit[0m
+2024-12-11 20:20:31,748 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:31] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:31,750 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:31] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:32,079 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:32] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:32,324 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:32] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:50,661 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:50] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:50,669 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:50] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:50,978 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:50] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:20:51,302 - INFO - 127.0.0.1 - - [11/Dec/2024 20:20:51] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:21:28,032 - INFO - 127.0.0.1 - - [11/Dec/2024 20:21:28] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:21:28,033 - INFO - 127.0.0.1 - - [11/Dec/2024 20:21:28] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:21:28,039 - INFO - 127.0.0.1 - - [11/Dec/2024 20:21:28] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:21:28,343 - INFO - 127.0.0.1 - - [11/Dec/2024 20:21:28] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:37:38,759 - INFO - 127.0.0.1 - - [11/Dec/2024 20:37:38] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:37:38,760 - INFO - 127.0.0.1 - - [11/Dec/2024 20:37:38] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:37:39,071 - INFO - 127.0.0.1 - - [11/Dec/2024 20:37:39] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:37:39,332 - INFO - 127.0.0.1 - - [11/Dec/2024 20:37:39] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:38:50,188 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-12-11 20:38:50,188 - INFO - [33mPress CTRL+C to quit[0m
+2024-12-11 20:38:54,248 - INFO - 127.0.0.1 - - [11/Dec/2024 20:38:54] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:38:54,250 - INFO - 127.0.0.1 - - [11/Dec/2024 20:38:54] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:38:54,597 - INFO - 127.0.0.1 - - [11/Dec/2024 20:38:54] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:38:54,819 - INFO - 127.0.0.1 - - [11/Dec/2024 20:38:54] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:43:35,929 - INFO - 127.0.0.1 - - [11/Dec/2024 20:43:35] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:43:35,930 - INFO - 127.0.0.1 - - [11/Dec/2024 20:43:35] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:43:36,244 - INFO - 127.0.0.1 - - [11/Dec/2024 20:43:36] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:43:36,505 - INFO - 127.0.0.1 - - [11/Dec/2024 20:43:36] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:46:47,212 - INFO - 127.0.0.1 - - [11/Dec/2024 20:46:47] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:46:47,214 - INFO - 127.0.0.1 - - [11/Dec/2024 20:46:47] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:46:47,522 - INFO - 127.0.0.1 - - [11/Dec/2024 20:46:47] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:46:47,792 - INFO - 127.0.0.1 - - [11/Dec/2024 20:46:47] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:48:40,624 - INFO - 127.0.0.1 - - [11/Dec/2024 20:48:40] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:48:40,935 - INFO - 127.0.0.1 - - [11/Dec/2024 20:48:40] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:49:09,308 - INFO - 127.0.0.1 - - [11/Dec/2024 20:49:09] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:49:09,313 - INFO - 127.0.0.1 - - [11/Dec/2024 20:49:09] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:49:13,619 - INFO - 127.0.0.1 - - [11/Dec/2024 20:49:13] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:49:44,616 - INFO - 127.0.0.1 - - [11/Dec/2024 20:49:44] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:49:44,622 - INFO - 127.0.0.1 - - [11/Dec/2024 20:49:44] "GET /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:50:16,302 - INFO - 127.0.0.1 - - [11/Dec/2024 20:50:16] "OPTIONS /api/get_scraped_data HTTP/1.1" 200 -
+2024-12-11 20:50:16,615 - INFO - 127.0.0.1 - - [11/Dec/2024 20:50:16] "GET /api/get_scraped_data HTTP/1.1" 200 -

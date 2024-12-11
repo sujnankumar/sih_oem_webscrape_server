@@ -442,12 +442,20 @@ def insert_scraped_data():
 @api.route('/get_scraped_data', methods=['GET'])
 def get_scraped_data_summary():
     """
-    Retrieve a summary of vulnerability data with selected fields.
+    Retrieve a summary of vulnerability data with selected fields including is_it from OEMWebsite.
     """
-    from .models import Vulnerabilities  # Import the Vulnerabilities model inside the function
+    from .models import Vulnerabilities, OEMWebsite  # Import the models
 
-    # Retrieve all entries from the Vulnerabilities table
-    scraped_data = Vulnerabilities.query.all()
+    # Retrieve all entries from the Vulnerabilities table with the related OEMWebsite data
+    scraped_data = db.session.query(
+        Vulnerabilities.product_name_version,
+        Vulnerabilities.vendor,
+        Vulnerabilities.severity_level,
+        Vulnerabilities.vulnerability,
+        Vulnerabilities.published_date,
+        Vulnerabilities.reference,
+        OEMWebsite.is_it
+    ).join(OEMWebsite, Vulnerabilities.oem_website_id == OEMWebsite.id).all()
 
     # Serialize the data to JSON with specified fields
     data_list = [
@@ -457,7 +465,8 @@ def get_scraped_data_summary():
             'severity_level': data.severity_level,
             'vulnerability': data.vulnerability,
             'published_date': data.published_date.strftime('%Y-%m-%d') if data.published_date else None,
-            'reference': data.reference
+            'reference': data.reference,
+            'is_it': data.is_it
         }
         for data in scraped_data
     ]
