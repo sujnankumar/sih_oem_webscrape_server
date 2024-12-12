@@ -207,25 +207,41 @@ def edit_profile():
     data = request.get_json()
     new_email = data.get('new_email')
     password = data.get('password')
-    pass_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    oems = data.get('oems')
+    if not oems and not new_email:
+        return jsonify({"error": "No Updates provided!"}), 400
+    if new_email:
+        pass_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-    if not new_email or not password:
-        return jsonify({"error": "Missing email or password"}), 400
-    
-    if session.get('otp_verified') != new_email:
-        return jsonify({"error": "OTP not verified"}), 403
+        if not new_email or not password:
+            return jsonify({"error": "Missing email or password"}), 400
+        
+        if session.get('otp_verified') != new_email:
+            return jsonify({"error": "OTP not verified"}), 403
 
-    # Verify password
-    if pass_hash != user.password:
-        return jsonify({'error': 'Invalid email or password'}), 401
+        # Verify password
+        if pass_hash != user.password:
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        try:
+            user.email = new_email
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+    if oems:
+        try:
+            oem_string = ""
+            for oem in oems:
+                oem_string += oem + ", "
+            user.interested_in_product_categories = oem_string
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
     
-    try:
-        user.email = new_email
-        db.session.commit()
         return jsonify({'message': 'Profile updated successfully'}), 200
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @api.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -1120,9 +1136,14 @@ def get_all_oems():
     try:
         oems = OEMWebsite.query.all()
         oem_names = [oem.oem_name for oem in oems]
+<<<<<<< HEAD
         print(oem_names)
         return jsonify({"oem_names": oem_names}),200
         
+=======
+        jsonify({"oem_names": oem_names}),200
+
+>>>>>>> 36df79884b5d022706887bfa521eaaa8b9e171a9
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
