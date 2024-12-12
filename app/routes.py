@@ -1115,38 +1115,39 @@ def take_action_on_report(report_id):
 @jwt_required()
 def admin_dashboard():
     from .models import OEMWebsite, Vulnerabilities
+    return jsonify({"message": "Admin dashboard"}), 200
 
-    try:
-        # Query the website data
-        results = OEMWebsite.query.all()
-        if not results:
-            return jsonify({'error': 'No results found'}), 404
-        website_count = len(results)
-        print("HI")
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    try:
-        # Query the latest scraped date from Vulnerabilities
-        print("^Y^")
-        last_scraped = (
-            db.session.query(Vulnerabilities.scraped_date)
-            .order_by(Vulnerabilities.scraped_date.desc())
-            .first()
-        )
+    # try:
+    #     # Query the website data
+    #     results = OEMWebsite.query.all()
+    #     if not results:
+    #         return jsonify({'erro+++--': 'No results found'}), 404
+    #     website_count = len(results)
+    #     print("HI")
+    # except Exception as e:
+    #     return jsonify({'error': str(e)}), 500
+    # try:
+    #     # Query the latest scraped date from Vulnerabilities
+    #     print("^Y^")
+    #     last_scraped = (
+    #         db.session.query(Vulnerabilities.scraped_date)
+    #         .order_by(Vulnerabilities.scraped_date.desc())
+    #         .first()
+    #     )
 
-        # Handle case where no vulnerabilities are found
-        if not last_scraped:
-            last_scraped_date = None
-        else:
-            last_scraped_date = last_scraped.scraped_date.strftime('%Y-%m-%d %H:%M:%S')
-    except Exception as e:
-        return jsonify({'error': f"Failed to fetch last scraped date: {str(e)}"}), 500
+    #     # Handle case where no vulnerabilities are found
+    #     if not last_scraped:
+    #         last_scraped_date = None
+    #     else:
+    #         last_scraped_date = last_scraped.scraped_date.strftime('%Y-%m-%d %H:%M:%S')
+    # except Exception as e:
+    #     return jsonify({'error': f"Failed to fetch last scraped date: {str(e)}"}), 500
 
-    # Build and return the response
-    return jsonify({
-        "count": website_count,
-        "last_scraped": last_scraped_date
-    }), 200
+    # # Build and return the response
+    # return jsonify({
+    #     "count": website_count,
+    #     "last_scraped": last_scraped_date
+    # }), 200
 
 
         
