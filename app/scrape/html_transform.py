@@ -198,18 +198,15 @@ def convert_doc_without_cve(document):
 def convert_doc_with_cve(document):
     # Extract the page content from the document
     page_content = document.page_content
-    print(page_content)
     # Define a regex pattern to match CVE references
     cve_pattern = re.compile(r'CVE-\d{4}-\d{4,7}', re.IGNORECASE)
 
     def contains_cve(text):
-        print(text)
         """Check if the text contains any CVE references."""
         return bool(cve_pattern.search(text))
 
     def find_relevant_snippets(elements, seen_elements):
         """Process elements to find relevant HTML snippets based on anchor tags."""
-        print(elements)
         snippets = []
         links = []
         for elem in elements:
@@ -244,7 +241,7 @@ def convert_doc_with_cve(document):
     document.metadata["links"] = links
     document.contains_listing = True
     document.contains_cve = True
-    print(links)
+
     return document
 
 

@@ -112,17 +112,16 @@ class Vulnerabilities(db.Model):
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    cvss_score = db.Column(db.Float, nullable=True)
+    cvss_score = db.Column(db.Text, nullable=True)
     reference = db.Column(db.Text, nullable=True)
     impact = db.Column(db.Text, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True)
     email_sent = db.Column(db.Boolean, default=False)
-        
+
     def __init__(
         self,
-        id,
         product_name_version,
         severity_level,
         vendor,
@@ -137,7 +136,6 @@ class Vulnerabilities(db.Model):
         reference=None,
         additional_details=None,
     ):
-        self.id = id
         self.product_name_version = product_name_version
         self.severity_level = severity_level
         self.vendor = vendor
@@ -151,6 +149,7 @@ class Vulnerabilities(db.Model):
         self.cvss_score = cvss_score
         self.reference = reference
         self.additional_details = additional_details
+
     
     def to_dict(self):
         return {
