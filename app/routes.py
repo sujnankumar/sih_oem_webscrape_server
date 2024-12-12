@@ -1125,7 +1125,10 @@ def admin_dashboard():
         website_count = len(results)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
+    if not results:
+        return jsonify({'error': 'No results found'}), 404
+    
     # Build the list with the combined data
     last_scraped = Vulnerabilities.query.filter_by(scraped_date=Vulnerabilities.scraped_date).desc().first()
 
