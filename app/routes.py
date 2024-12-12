@@ -1118,10 +1118,7 @@ def admin_dashboard():
 
     try:
         # Query the website data
-        results = db.session.query(
-            OEMWebsite.oem_name,
-            OEMWebsite.last_scraped,
-        ).join(ScrapingLogs, OEMWebsite.id == ScrapingLogs.website_id).all()
+        results = db.session.query(OEMWebsite).all()
         if not results:
             return jsonify({'error': 'No results found'}), 404
         website_count = len(results)
