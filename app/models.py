@@ -118,6 +118,7 @@ class Vulnerabilities(db.Model):
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True)
+    email_sent = db.Column(db.Boolean, default=False)
         
     def __init__(
         self,
