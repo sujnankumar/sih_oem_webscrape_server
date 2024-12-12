@@ -6,6 +6,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_cors import CORS
 import os
+from queue import Queue
 
 
 from flask_mail import Mail
@@ -18,6 +19,7 @@ db = SQLAlchemy()
 bcrypt = Bcrypt()
 jwt = JWTManager()
 migrate = Migrate()
+task_queue = Queue()
 
 def create_app():
     app = Flask(__name__)
