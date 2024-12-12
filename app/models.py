@@ -104,10 +104,10 @@ class Vulnerabilities(db.Model):
     __tablename__ = 'vulnerabilities'
 
     id = db.Column(db.Integer, primary_key=True)
-    product_name_version = db.Column(db.Text, nullable=False)
+    product_name_version = db.Column(db.Text, nullable=True)
     vendor = db.Column(db.String(150), nullable=False)
-    severity_level = db.Column(db.Text, nullable=False)  # Critical or High
-    vulnerability = db.Column(db.Text, nullable=False)
+    severity_level = db.Column(db.Text, nullable=False, default='High')  # Critical or High
+    vulnerability = db.Column(db.Text, nullable=True)
     remediation = db.Column(db.Text, nullable=True)
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
@@ -117,7 +117,7 @@ class Vulnerabilities(db.Model):
     impact = db.Column(db.Text, nullable=True)
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
-    additional_details = db.Column(db.JSON, nullable=True)
+    additional_details = db.Column(db.Text, nullable=True)
     email_sent = db.Column(db.Boolean, default=False)
 
     def __init__(
@@ -130,11 +130,12 @@ class Vulnerabilities(db.Model):
         published_date,
         unique_id,
         oem_website_id,
-        scraped_date=None,  # Optional parameter with default
+        scraped_date=None,
         impact=None,
         cvss_score=None,
         reference=None,
         additional_details=None,
+        email_sent=False
     ):
         self.product_name_version = product_name_version
         self.severity_level = severity_level
@@ -149,6 +150,7 @@ class Vulnerabilities(db.Model):
         self.cvss_score = cvss_score
         self.reference = reference
         self.additional_details = additional_details
+        self.email_sent = email_sent
 
     
     def to_dict(self):
@@ -165,7 +167,8 @@ class Vulnerabilities(db.Model):
             'impact': self.impact,
             'cvss_score': self.cvss_score,
             'reference': self.reference,
-            'additional_details': self.additional_details
+            'additional_details': self.additional_details,
+            'email_sent': self.email_sent
         }
 
 

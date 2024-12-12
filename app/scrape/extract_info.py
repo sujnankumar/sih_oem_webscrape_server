@@ -195,7 +195,7 @@ def extract_vulnerability_info(document, OPENAI_API_KEY):
         )
         try:
             extracted_data = response.choices[0].message.parsed
-            ret_list.append(extracted_data)
+            ret_list.append((extracted_data, cve))
         except Exception as e:
             print(f"Error processing document: {e}")
     return ret_list

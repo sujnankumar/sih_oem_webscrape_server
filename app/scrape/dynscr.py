@@ -105,7 +105,9 @@ def dynamic_scraper(app, initial_documents):
     ret_results = []
     for doc in docs_transformed:
         extracted_info = extract_vulnerability_info(doc, api_key)
-        for info in extracted_info:
+        for info, cve in extracted_info:
+            if not info.CVE_ID:
+                info.CVE_ID = cve
             ret_results.append([info, doc.metadata['id']])
-    print(ret_results)
+
     return ret_results

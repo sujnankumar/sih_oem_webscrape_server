@@ -15,6 +15,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, scoped_session
 from .email import send_alerts
 
+def is_float(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
@@ -23,23 +30,49 @@ def map_additional_details_to_vulnerability(additional_details: AdditionalDetail
     Maps AdditionalDetails to a Vulnerabilities model instance.
     """
     try:
-        vulnerability = Vulnerabilities(
-            unique_id=additional_details.CVE_ID,
-            product_name_version=', '.join(additional_details.Affected_Products_with_Version) if additional_details.Affected_Products_with_Version else "N/A",
-            vendor=additional_details.Vendor or "Unknown Vendor",
-            severity_level=additional_details.Severity_Level or "Unknown",
-            vulnerability=additional_details.Summary or "N/A",
-            remediation=additional_details.Remediation or "N/A",
-            impact=additional_details.Impact_or_Exploitation or "N/A",
-            cvss_score=float(additional_details.CVSS_Base_Score) if additional_details.CVSS_Base_Score else None,
-            reference=', '.join(additional_details.References) if additional_details.References else None,
-            additional_details=additional_details.model_dump(by_alias=True),
-            published_date=datetime.utcnow(),
-            oem_website_id=oem_website_id,
-        )
-        return vulnerability
+        # Check if a vulnerability with the given CVE ID exists
+        existing_vulnerability = Vulnerabilities.query.filter_by(unique_id=additional_details.CVE_ID).first()
+        
+        if existing_vulnerability:
+            logging.info(f"Existing vulnerability found for CVE ID: {additional_details.CVE_ID}")
+
+            # Update non-critical fields
+            existing_vulnerability.product_name_version = ', '.join(additional_details.Affected_Products_with_Version) or existing_vulnerability.product_name_version
+            existing_vulnerability.vendor = additional_details.Vendor or existing_vulnerability.vendor
+            existing_vulnerability.vulnerability = additional_details.Summary or existing_vulnerability.vulnerability
+            existing_vulnerability.remediation = additional_details.Remediation or existing_vulnerability.remediation
+            existing_vulnerability.impact = additional_details.Impact_or_Exploitation or existing_vulnerability.impact
+            existing_vulnerability.reference = ', '.join(additional_details.References) if additional_details.References else existing_vulnerability.reference
+            existing_vulnerability.additional_details = additional_details.model_dump(by_alias=True) or existing_vulnerability.additional_details
+
+            # Do not update critical fields like cvss_score, severity_level
+            logging.info(f"Updated fields for CVE ID: {additional_details.CVE_ID} without modifying scores or severity level.")
+            
+            db.session.commit()
+            return existing_vulnerability
+        else:
+            logging.info(f"No existing vulnerability found for CVE ID: {additional_details.CVE_ID}. Creating a new record.")
+            
+            # Create a new vulnerability record
+            new_vulnerability = Vulnerabilities(
+                unique_id=additional_details.CVE_ID,
+                product_name_version=', '.join(additional_details.Affected_Products_with_Version) if additional_details.Affected_Products_with_Version else "N/A",
+                vendor=additional_details.Vendor or "Unknown Vendor",
+                severity_level=additional_details.Severity_Level or "Unknown",
+                vulnerability=additional_details.Summary or "N/A",
+                remediation=additional_details.Remediation or "N/A",
+                impact=additional_details.Impact_or_Exploitation or "N/A",
+                cvss_score=float(additional_details.CVSS_Base_Score) if is_float(additional_details.CVSS_Base_Score) else None,
+                reference=', '.join(additional_details.References) if additional_details.References else None,
+                additional_details=additional_details.model_dump(by_alias=True),
+                published_date=datetime.utcnow(),
+                oem_website_id=oem_website_id,
+            )
+            db.session.add(new_vulnerability)
+            db.session.commit()
+            return new_vulnerability
     except Exception as e:
-        logging.error(f"Error while mapping AdditionalDetails to Vulnerabilities: {e}")
+        logging.error(f"Error while merging or creating vulnerability: {e}")
         raise
 
 
@@ -63,6 +96,7 @@ def job_listener(event, app: Flask):
                 return
 
             try:
+                print(results)
                 for info, website_id in results:
                     oem_website = scoped_session_factory.query(OEMWebsite).get(website_id)
                     if not oem_website:
@@ -71,7 +105,8 @@ def job_listener(event, app: Flask):
                     vulnerability = map_additional_details_to_vulnerability(info, oem_website.id)
                     scoped_session_factory.add(vulnerability)
                     scoped_session_factory.commit()
-                    send_alerts(website_id)
+                    print("Committed")
+                    send_alerts(website_id, app)
                     print("The END")
                     logging.info(f"Vulnerability for {oem_website.website_url} added successfully.")
             except IntegrityError as e:
@@ -91,7 +126,7 @@ def start_scheduler():
     with app.app_context():
         try:
             oem_websites = OEMWebsite.query.all()
-            documents = [Document(page_content="", metadata={"source": website.website_url, "contains_cve": True, "id": website.id},
+            documents = [Document(page_content="", metadata={"source": website.website_url, "contains_cve": website.contains_cve, "id": website.id},
                                  contains_listing=website.contains_listing,
                                  contains_date=website.contains_date,
                                  is_rss = website.is_rss,
