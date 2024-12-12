@@ -41,6 +41,11 @@ def load_user(user_id):
     from .models import User  # Avoid circular import by importing inside the function
     return User.query.get(int(user_id))
 
+@api.route('/get_name', methods=['GET'])
+@jwt_required()
+def get_name():
+    username = get_jwt_identity()['username']
+    return jsonify({'name': username}),200
 
 @bp.route('/get_otp', methods=['POST'])
 def get_otp():
@@ -664,6 +669,14 @@ def send_alerts():
     users = User.query.all()
 
     for user in users:
+        if user.interested_in_product_categories:
+            interested_categories = set(
+                category.strip().lower()
+                for category in user.interested_in_product_categories.split(',')
+            )
+            if vulnerability.oem_website.oem_name.lower() not in interested_categories:
+                continue
+        
         # Create an alert for each user
         new_alert = Alert(vulnerability_id=vulnerability_id, user_id=user.id)
         db.session.add(new_alert)
@@ -672,6 +685,7 @@ def send_alerts():
         # Send email to the user
         subject = f"New Vulnerability Alert: {vulnerability.product_name}"
         message_body = f"""
+        -----------------------------------CVE SECURITY ALERT--------------------------------------------
         Dear {user.username},
 
         A new vulnerability has been identified:
@@ -688,6 +702,7 @@ def send_alerts():
 
         Best regards,
         Your Security Team
+        -------------------------------------------------------------------------------------------------
         """
         try:
             msg = Message(subject=subject, recipients=[user.email], body=message_body)
