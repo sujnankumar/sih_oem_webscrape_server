@@ -1111,28 +1111,42 @@ def take_action_on_report(report_id):
     except Exception as e:
         return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500
 
-@api.route('api/admin/dashboard', methods=['GET'])
+@api.route('/admin/dashboard', methods=['GET'])
 @jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, ScrapingLogs
-    #get the website name, last_scraped and status
+    from .models import OEMWebsite, ScrapingLogs, Vulnerabilities
+
     try:
-        results = db.session.query(
-            OEMWebsite.oem_name,
-            OEMWebsite.last_scraped,
-            ScrapingLogs.status
-        ).join(ScrapingLogs, OEMWebsite.id == ScrapingLogs.website_id).all()
-        
+        # Query the website data
+        results = db.session.query(OEMWebsite).all()
+        if not results:
+            return jsonify({'error': 'No results found'}), 404
+        website_count = len(results)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    try:
+        # Query the latest scraped date from Vulnerabilities
+        last_scraped = (
+            db.session.query(Vulnerabilities.scraped_date)
+            .order_by(Vulnerabilities.scraped_date.desc())
+            .first()
+        )
 
-    # Build the list with the combined data
-    website_list = [
-        {"website_name": oem_name, "last_scraped": last_scraped, "status": status}
-        for oem_name, last_scraped, status in results
-    ]
+        # Handle case where no vulnerabilities are found
+        if not last_scraped:
+            last_scraped_date = None
+        else:
+            last_scraped_date = last_scraped.scraped_date.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        return jsonify({'error': f"Failed to fetch last scraped date: {str(e)}"}), 500
 
-    return jsonify(website_list),200
+    # Build and return the response
+    return jsonify({
+        "count": website_count,
+        "last_scraped": last_scraped_date
+    }), 200
+
+
         
 @api.route('/get_all_oems', methods=['GET'])
 def get_all_oems():
