@@ -1112,7 +1112,6 @@ def take_action_on_report(report_id):
         return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500
 
 @api.route('/admin/dashboard', methods=['GET'])
-@jwt_required()
 def admin_dashboard():
     from .models import OEMWebsite, Vulnerabilities
     return jsonify({"message": "Admin dashboard"}), 200
