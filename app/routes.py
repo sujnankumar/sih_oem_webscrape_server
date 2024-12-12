@@ -1114,7 +1114,7 @@ def take_action_on_report(report_id):
 @api.route('/admin/dashboard', methods=['GET'])
 @jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, Scra, Vulnerabilities
+    from .models import OEMWebsite, Vulnerabilities
 
     try:
         # Query the website data
