@@ -283,6 +283,8 @@ def add_website():
             contains_date=options.get('contains_date', False),
             is_it=options.get('is_it', False),
             is_official=options.get('is_official', False),
+            is_rss = options.get('is_rss', False),
+            contains_cve = options.get('contains_cve', False)
         )
 
         # Commit the new website to the database
