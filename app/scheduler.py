@@ -68,7 +68,6 @@ def job_listener(event, app: Flask):
                     if not oem_website:
                         logging.warning(f"No OEMWebsite found for ID: {website_id}")
                         continue
-
                     vulnerability = map_additional_details_to_vulnerability(info, oem_website.id)
                     scoped_session_factory.add(vulnerability)
                     scoped_session_factory.commit()

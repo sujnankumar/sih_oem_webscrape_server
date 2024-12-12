@@ -54,6 +54,7 @@ def gather_more_links(docs_extracted_info):
         if info:
             for entry in info:
                 link = entry.get("Link for more details", "")
+                print(link)
                 more_links.add((get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, doc.metadata['id']))
         ret_docs.append(Document(page_content="", metadata={"source": link, "contains_cve": True, "id": doc.metadata['id'], "more_links": list(more_links)}, contains_listing=False, contains_date=False, contains_details=False))
     return ret_docs

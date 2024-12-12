@@ -50,7 +50,6 @@ def scrape_page(app,documents):
         log_scraping_start(app,doc.metadata["source"],logging)
         print(doc.metadata["source"])
         page_content = get_page_content(doc.metadata["source"])
-        print(page_content)
         if page_content:
             doc.page_content = page_content
             contains_cve = check_for_cve(doc.page_content)
