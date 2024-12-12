@@ -71,6 +71,7 @@ def job_listener(event, app: Flask):
                     vulnerability = map_additional_details_to_vulnerability(info, oem_website.id)
                     scoped_session_factory.add(vulnerability)
                     scoped_session_factory.commit()
+                    print("The END")
                     logging.info(f"Vulnerability for {oem_website.website_url} added successfully.")
             except IntegrityError as e:
                 scoped_session_factory.rollback()
@@ -92,6 +93,7 @@ def start_scheduler():
             documents = [Document(page_content="", metadata={"source": website.website_url, "contains_cve": False, "id": website.id},
                                  contains_listing=website.contains_listing,
                                  contains_date=website.contains_date,
+                                 is_rss = website.is_rss,
                                  contains_details=website.contains_details) for website in oem_websites]
         except Exception as e:
             logging.error(f"Error fetching OEM websites: {e}")
@@ -100,7 +102,7 @@ def start_scheduler():
     scheduler.add_listener(lambda event: job_listener(event, app), EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
     scheduler.add_job(
-        func=lambda: dynamic_scraper(app,documents),
+        func=lambda: dynamic_scraper(app),
         trigger=IntervalTrigger(seconds=10),
         id="scraping_job",
         name="Scraping Job",

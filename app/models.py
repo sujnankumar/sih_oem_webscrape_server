@@ -55,17 +55,19 @@ class OEMWebsite(db.Model):
     last_scraped = db.Column(db.DateTime, nullable=True)
     is_it = db.Column(db.Boolean, default=True, nullable=False)
     is_official = db.Column(db.Boolean, default=True, nullable=False)
+    is_rss = db.Column(db.Boolean, default=False, nullable=True)
     contains_listing = db.Column(db.Boolean, default=False, nullable=False)
     contains_date = db.Column(db.Boolean, default=False, nullable=False)
     contains_details = db.Column(db.Boolean, default=False, nullable=False)
     website_hash = db.Column(db.String(100), nullable=True)
 
-    def __init__(self, oem_name, website_url, scrape_frequency=60, last_scraped=None, is_it=True, is_official=True, contains_listing=False, contains_date=False, contains_details=False):
+    def __init__(self, oem_name, website_url, scrape_frequency=60, last_scraped=None, is_it=True, is_rss=False, is_official=True, contains_listing=False, contains_date=False, contains_details=False):
         self.oem_name = oem_name
         self.website_url = website_url
         self.scrape_frequency = scrape_frequency
         self.last_scraped = last_scraped
         self.is_it = is_it
+        self.is_rss = is_rss
         self.is_official = is_official
         self.contains_listing = contains_listing
         self.contains_date = contains_date

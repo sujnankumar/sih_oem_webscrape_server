@@ -9,13 +9,12 @@ from ..logging_functions import log_scraping_start, log_scraping_end
 
 def load_api_key():
     load_dotenv()
-    print(os.getenv("OPENAI_API_KEY"))
     return os.getenv("OPENAI_API_KEY")
 
 
 def initialize_documents():
     return [
-        Document(page_content="", metadata={"source": "https://msrc.microsoft.com/update-guide/", "contains_cve": False}, contains_listing=False, contains_date=True, contains_details=True)
+        Document(page_content="", metadata={"source": "https://api.msrc.microsoft.com/update-guide/rss", "contains_cve": False}, contains_listing=False, contains_date=True, contains_details=True, is_rss=True)
     ]
 # ,
         # Document(page_content="", metadata={"source": "https://www.intel.com/content/www/us/en/security-center/default.html", "contains_cve": False}, contains_listing=True, contains_date=False, contains_details=False),
@@ -28,7 +27,6 @@ def process_documents_with_listings(documents):
             doc_all_links = convert_doc_without_cve(doc)
             for link in doc_all_links.metadata['links'][:1]:
                 new_doc = Document(page_content="", metadata={"source": get_base_url(doc.metadata['source'])+link if is_relative_url(link) else link, 'id': doc.metadata['id']}, contains_listing=False, contains_date=False, contains_details=doc.contains_details)
-                print(new_doc)
                 documents_listing.append(new_doc)
     return documents_listing
 
@@ -57,10 +55,9 @@ def create_further_documents(more_links):
     for link, id in more_links:
         return [Document(page_content="", metadata={"source": link, "contains_cve": False, "id": id}, contains_listing=False, contains_date=False, contains_details=False)]
 
-def dynamic_scraper(app,initial_documents):
+def dynamic_scraper(app):
     api_key = load_api_key()
-
-
+    initial_documents = initialize_documents()
     documents = scrape_documents(app,initial_documents)
 
     documents_listing = process_documents_with_listings(documents)
@@ -70,15 +67,13 @@ def dynamic_scraper(app,initial_documents):
 
     docs_with_details = [doc for doc in docs_transformed if doc.contains_details]
     docs_without_details = [doc for doc in docs_transformed if not doc.contains_details]
-
     docs_extracted_info = extract_info_from_documents(docs_with_details, api_key)
-
     more_links = gather_more_links(docs_extracted_info)
     further_documents = create_further_documents(more_links)
 
     documents = scrape_documents(app,further_documents)
     docs_transformed = transform_documents(documents) + docs_without_details
-    
+    print(docs_transformed)
     ret_results = []
     for doc in docs_transformed:
         extracted_info = extract_vulnerability_info(doc, api_key)
