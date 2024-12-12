@@ -1114,18 +1114,20 @@ def take_action_on_report(report_id):
 @api.route('/admin/dashboard', methods=['GET'])
 @jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, ScrapingLogs, Vulnerabilities
+    from .models import OEMWebsite, Scra, Vulnerabilities
 
     try:
         # Query the website data
-        results = db.session.query(OEMWebsite).all()
+        results = OEMWebsite.query.all()
         if not results:
             return jsonify({'error': 'No results found'}), 404
         website_count = len(results)
+        print("HI")
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     try:
         # Query the latest scraped date from Vulnerabilities
+        print("^Y^")
         last_scraped = (
             db.session.query(Vulnerabilities.scraped_date)
             .order_by(Vulnerabilities.scraped_date.desc())
