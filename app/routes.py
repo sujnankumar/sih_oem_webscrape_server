@@ -41,6 +41,11 @@ def load_user(user_id):
     from .models import User  # Avoid circular import by importing inside the function
     return User.query.get(int(user_id))
 
+@api.route('/get_name', methods=['GET'])
+@jwt_required()
+def get_name():
+    username = get_jwt_identity()['username']
+    return jsonify({'name': username}),200
 
 @bp.route('/get_otp', methods=['POST'])
 def get_otp():
@@ -195,6 +200,41 @@ def login():
 @jwt_required()
 def logout():
     return jsonify({'message': 'Successfully logged out'}), 200
+
+@bp.route('/edit-profile', methods=['POST'])
+@jwt_required()
+def edit_profile():
+    from .models import User
+    # Use get_jwt_identity to get the identity from the token
+    identity = get_jwt_identity()['id']
+    user = User.query.filter_by(id=identity).first()
+    
+    data = request.get_json()
+    print(data)
+    new_email = data.get('new_email')
+    oems = data.get('oems')
+    if not oems and not new_email:
+        return jsonify({"error": "No Updates provided!"}), 400  
+    
+       
+    try:
+        user.email = new_email
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+    if oems:
+        try:
+            oem_string = ""
+            for oem in oems:
+                oem_string += oem + ", "
+            user.interested_in_product_categories = oem_string
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+        print("No error ")
+        return jsonify({'message': 'Profile updated successfully'}), 200
     
 
 @api.route('/dashboard', methods=['GET'])
@@ -448,6 +488,7 @@ def get_scraped_data_summary():
 
     # Retrieve all entries from the Vulnerabilities table with the related OEMWebsite data
     scraped_data = db.session.query(
+        Vulnerabilities.id,
         Vulnerabilities.product_name_version,
         Vulnerabilities.vendor,
         Vulnerabilities.severity_level,
@@ -460,6 +501,7 @@ def get_scraped_data_summary():
     # Serialize the data to JSON with specified fields
     data_list = [
         {
+            'id': data.id,
             'product_name_version': data.product_name_version,
             'vendor': data.vendor,
             'severity_level': data.severity_level,
@@ -467,11 +509,59 @@ def get_scraped_data_summary():
             'published_date': data.published_date.strftime('%Y-%m-%d') if data.published_date else None,
             'reference': data.reference,
             'is_it': data.is_it
-        }
+        }   
         for data in scraped_data
     ]
 
     return jsonify({'data': data_list}), 200
+
+@api.route('/get_scraped_data_by_id/<int:id>', methods=['GET'])
+def get_scraped_data_by_id(id):
+    """
+    Retrieve all details of a specific vulnerability by ID, including related OEMWebsite data.
+    """
+    from .models import Vulnerabilities, OEMWebsite  # Import the models
+
+    # Query the database for the specific vulnerability by ID
+    vulnerability = db.session.query(
+        Vulnerabilities.id,
+        Vulnerabilities.product_name_version,
+        Vulnerabilities.vendor,
+        Vulnerabilities.severity_level,
+        Vulnerabilities.vulnerability,
+        Vulnerabilities.remediation,
+        Vulnerabilities.published_date,
+        Vulnerabilities.scraped_date,
+        Vulnerabilities.cvss_score,
+        Vulnerabilities.reference,
+        Vulnerabilities.impact,
+        OEMWebsite.is_it
+    ).filter(Vulnerabilities.id == id).first()
+
+    # Check if the vulnerability exists
+    if not vulnerability:
+        return jsonify({'error': 'Vulnerability not found'}), 404
+
+    # Serialize the vulnerability data to JSON
+    data = {
+        'id': vulnerability.id,
+        'product_name_version': vulnerability.product_name_version,
+        'vendor': vulnerability.vendor,
+        'severity_level': vulnerability.severity_level,
+        'vulnerability': vulnerability.vulnerability,
+        'remediation': vulnerability.remediation,
+        'published_date': vulnerability.published_date.strftime('%Y-%m-%d') if vulnerability.published_date else None,
+        'scraped_date': vulnerability.scraped_date.strftime('%Y-%m-%d') if vulnerability.scraped_date else None,
+        'cvss_score': vulnerability.cvss_score,
+        'reference': vulnerability.reference,
+        'impact': vulnerability.impact,
+        'is_it': vulnerability.is_it
+    }
+
+    print(data)
+
+    return jsonify({'data': data}), 200
+
 
 
 @api.route('/search', methods=['POST'])
@@ -568,6 +658,14 @@ def send_alerts():
     users = User.query.all()
 
     for user in users:
+        if user.interested_in_product_categories:
+            interested_categories = set(
+                category.strip().lower()
+                for category in user.interested_in_product_categories.split(',')
+            )
+            if vulnerability.oem_website.oem_name.lower() not in interested_categories:
+                continue
+        
         # Create an alert for each user
         new_alert = Alert(vulnerability_id=vulnerability_id, user_id=user.id)
         db.session.add(new_alert)
@@ -576,6 +674,7 @@ def send_alerts():
         # Send email to the user
         subject = f"New Vulnerability Alert: {vulnerability.product_name}"
         message_body = f"""
+        -----------------------------------CVE SECURITY ALERT--------------------------------------------
         Dear {user.username},
 
         A new vulnerability has been identified:
@@ -592,6 +691,7 @@ def send_alerts():
 
         Best regards,
         Your Security Team
+        -------------------------------------------------------------------------------------------------
         """
         try:
             msg = Message(subject=subject, recipients=[user.email], body=message_body)
@@ -1034,7 +1134,16 @@ def admin_dashboard():
 
     return jsonify(website_list),200
         
+@api.route('/get_all_oems', methods=['GET'])
+def get_all_oems():
+    from .models import OEMWebsite
+    try:
+        oems = OEMWebsite.query.all()
+        oem_names = [oem.oem_name for oem in oems]
+        return jsonify({"oem_names": oem_names}),200
 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
     

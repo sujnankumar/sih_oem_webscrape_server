@@ -13,6 +13,7 @@ from datetime import datetime
 import logging
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, scoped_session
+from .email import send_alerts
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +72,7 @@ def job_listener(event, app: Flask):
                     vulnerability = map_additional_details_to_vulnerability(info, oem_website.id)
                     scoped_session_factory.add(vulnerability)
                     scoped_session_factory.commit()
+                    send_alerts(website_id)
                     print("The END")
                     logging.info(f"Vulnerability for {oem_website.website_url} added successfully.")
             except IntegrityError as e:

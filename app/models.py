@@ -108,7 +108,7 @@ class Vulnerabilities(db.Model):
     vendor = db.Column(db.String(150), nullable=False)
     severity_level = db.Column(db.Text, nullable=False)  # Critical or High
     vulnerability = db.Column(db.Text, nullable=False)
-    remediation = db.Column(db.Text, nullable=False)
+    remediation = db.Column(db.Text, nullable=True)
     published_date = db.Column(db.Date, nullable=False)
     unique_id = db.Column(db.String(50), unique=True, nullable=False)  # CVE ID or similar
     scraped_date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
@@ -118,9 +118,11 @@ class Vulnerabilities(db.Model):
     oem_website_id = db.Column(db.Integer, db.ForeignKey('oem_websites.id'), nullable=False)
     oem_website = db.relationship('OEMWebsite', backref=db.backref('vulnerabilities', lazy=True))
     additional_details = db.Column(db.JSON, nullable=True)
+    email_sent = db.Column(db.Boolean, default=False)
         
     def __init__(
         self,
+        id,
         product_name_version,
         severity_level,
         vendor,
@@ -135,6 +137,7 @@ class Vulnerabilities(db.Model):
         reference=None,
         additional_details=None,
     ):
+        self.id = id
         self.product_name_version = product_name_version
         self.severity_level = severity_level
         self.vendor = vendor
