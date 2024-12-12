@@ -1114,7 +1114,7 @@ def take_action_on_report(report_id):
 @api.route('api/admin/dashboard', methods=['GET'])
 @jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, ScrapingLogs
+    from .models import OEMWebsite, ScrapingLogs,Vulnerabilities
     #get the website name, last_scraped and status
     try:
         results = db.session.query(
@@ -1122,17 +1122,14 @@ def admin_dashboard():
             OEMWebsite.last_scraped,
             ScrapingLogs.status
         ).join(ScrapingLogs, OEMWebsite.id == ScrapingLogs.website_id).all()
-        
+        website_count = len(results)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
     # Build the list with the combined data
-    website_list = [
-        {"website_name": oem_name, "last_scraped": last_scraped, "status": status}
-        for oem_name, last_scraped, status in results
-    ]
+    last_scraped = Vulnerabilities.query.filter_by(scraped_date=Vulnerabilities.scraped_date).desc().first()
 
-    return jsonify(website_list),200
+    return jsonify({"count":website_count,"last_scraped":f"{last_scraped.scraped_date}"}),200
         
 @api.route('/get_all_oems', methods=['GET'])
 def get_all_oems():
