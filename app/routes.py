@@ -1126,11 +1126,8 @@ def admin_dashboard():
     try:
         # Query the latest scraped date from Vulnerabilities
         print("^Y^")
-        last_scraped = (
-            db.session.query(Vulnerabilities.scraped_date)
-            .order_by(Vulnerabilities.scraped_date.desc())
-            .first()
-        )
+        last_scraped =  Vulnerabilities.query.order_by(Vulnerabilities.scraped_date.desc()).first()
+        
 
         # Handle case where no vulnerabilities are found
         if not last_scraped:
