@@ -146,6 +146,23 @@ class Vulnerabilities(db.Model):
         self.cvss_score = cvss_score
         self.reference = reference
         self.additional_details = additional_details
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_name_version': self.product_name_version,
+            'severity_level': self.severity_level,
+            'vendor': self.vendor,
+            'vulnerability': self.vulnerability,
+            'remediation': self.remediation,
+            'published_date': self.published_date,
+            'unique_id': self.unique_id,
+            'scraped_date': self.scraped_date,
+            'impact': self.impact,
+            'cvss_score': self.cvss_score,
+            'reference': self.reference,
+            'additional_details': self.additional_details
+        }
 
 
 class Alert(db.Model):

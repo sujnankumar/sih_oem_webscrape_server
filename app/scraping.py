@@ -4,11 +4,11 @@ import logging
 from datetime import datetime
 
 # Set up logging
-logging.basicConfig(
-    filename='logs/scraping.log',  # Log file path
-    level=logging.INFO,  # Capture INFO level and above (INFO, WARNING, ERROR)
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
-)
+# logging.basicConfig(
+#     filename='logs/scraping.log',  # Log file path
+#     level=logging.INFO,  # Capture INFO level and above (INFO, WARNING, ERROR)
+#     format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+# )
 
 def scrape_task():
     """
