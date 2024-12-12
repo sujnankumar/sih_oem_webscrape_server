@@ -1121,15 +1121,12 @@ def admin_dashboard():
         results = db.session.query(
             OEMWebsite.oem_name,
             OEMWebsite.last_scraped,
-            ScrapingLogs.status
         ).join(ScrapingLogs, OEMWebsite.id == ScrapingLogs.website_id).all()
+        if not results:
+            return jsonify({'error': 'No results found'}), 404
         website_count = len(results)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-    if not results:
-        return jsonify({'error': 'No results found'}), 404
-
     try:
         # Query the latest scraped date from Vulnerabilities
         last_scraped = (
