@@ -1114,7 +1114,16 @@ def admin_dashboard():
 
     return jsonify(website_list),200
         
-
+@api.route('/get_all_oems', methods=['GET'])
+def get_all_oems():
+    from .models import OEMWebsite
+    try:
+        oems = OEMWebsite.query.all()
+        oem_names = [oem.oem_name for oem in oems]
+        jsonify({"oem_names": oem_names}),200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
     
