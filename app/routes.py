@@ -448,6 +448,7 @@ def get_scraped_data_summary():
 
     # Retrieve all entries from the Vulnerabilities table with the related OEMWebsite data
     scraped_data = db.session.query(
+        Vulnerabilities.id,
         Vulnerabilities.product_name_version,
         Vulnerabilities.vendor,
         Vulnerabilities.severity_level,
@@ -460,6 +461,7 @@ def get_scraped_data_summary():
     # Serialize the data to JSON with specified fields
     data_list = [
         {
+            'id': data.id,
             'product_name_version': data.product_name_version,
             'vendor': data.vendor,
             'severity_level': data.severity_level,
@@ -467,11 +469,59 @@ def get_scraped_data_summary():
             'published_date': data.published_date.strftime('%Y-%m-%d') if data.published_date else None,
             'reference': data.reference,
             'is_it': data.is_it
-        }
+        }   
         for data in scraped_data
     ]
 
     return jsonify({'data': data_list}), 200
+
+@api.route('/get_scraped_data_by_id/<int:id>', methods=['GET'])
+def get_scraped_data_by_id(id):
+    """
+    Retrieve all details of a specific vulnerability by ID, including related OEMWebsite data.
+    """
+    from .models import Vulnerabilities, OEMWebsite  # Import the models
+
+    # Query the database for the specific vulnerability by ID
+    vulnerability = db.session.query(
+        Vulnerabilities.id,
+        Vulnerabilities.product_name_version,
+        Vulnerabilities.vendor,
+        Vulnerabilities.severity_level,
+        Vulnerabilities.vulnerability,
+        Vulnerabilities.remediation,
+        Vulnerabilities.published_date,
+        Vulnerabilities.scraped_date,
+        Vulnerabilities.cvss_score,
+        Vulnerabilities.reference,
+        Vulnerabilities.impact,
+        OEMWebsite.is_it
+    ).filter(Vulnerabilities.id == id).first()
+
+    # Check if the vulnerability exists
+    if not vulnerability:
+        return jsonify({'error': 'Vulnerability not found'}), 404
+
+    # Serialize the vulnerability data to JSON
+    data = {
+        'id': vulnerability.id,
+        'product_name_version': vulnerability.product_name_version,
+        'vendor': vulnerability.vendor,
+        'severity_level': vulnerability.severity_level,
+        'vulnerability': vulnerability.vulnerability,
+        'remediation': vulnerability.remediation,
+        'published_date': vulnerability.published_date.strftime('%Y-%m-%d') if vulnerability.published_date else None,
+        'scraped_date': vulnerability.scraped_date.strftime('%Y-%m-%d') if vulnerability.scraped_date else None,
+        'cvss_score': vulnerability.cvss_score,
+        'reference': vulnerability.reference,
+        'impact': vulnerability.impact,
+        'is_it': vulnerability.is_it
+    }
+
+    print(data)
+
+    return jsonify({'data': data}), 200
+
 
 
 @api.route('/search', methods=['POST'])
