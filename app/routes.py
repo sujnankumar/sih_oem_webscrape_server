@@ -206,34 +206,23 @@ def logout():
 def edit_profile():
     from .models import User
     # Use get_jwt_identity to get the identity from the token
-    identity = get_jwt_identity()
+    identity = get_jwt_identity()['id']
     user = User.query.filter_by(id=identity).first()
     
     data = request.get_json()
+    print(data)
     new_email = data.get('new_email')
-    password = data.get('password')
     oems = data.get('oems')
     if not oems and not new_email:
-        return jsonify({"error": "No Updates provided!"}), 400
-    if new_email:
-        pass_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-        if not new_email or not password:
-            return jsonify({"error": "Missing email or password"}), 400
-        
-        if session.get('otp_verified') != new_email:
-            return jsonify({"error": "OTP not verified"}), 403
-
-        # Verify password
-        if pass_hash != user.password:
-            return jsonify({'error': 'Invalid email or password'}), 401
-        
-        try:
-            user.email = new_email
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'error': str(e)}), 500
+        return jsonify({"error": "No Updates provided!"}), 400  
+    
+       
+    try:
+        user.email = new_email
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
     if oems:
         try:
             oem_string = ""
@@ -244,7 +233,7 @@ def edit_profile():
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
-    
+        print("No error ")
         return jsonify({'message': 'Profile updated successfully'}), 200
     
 
