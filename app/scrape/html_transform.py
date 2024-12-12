@@ -3,6 +3,8 @@ import re
 from bs4 import BeautifulSoup
 from .document import Document
 import html2text
+import feedparser
+import json
 
 today = datetime(2024, 12, 10)
 date_formats = [
@@ -100,8 +102,29 @@ def convert_doc_without_cve(document):
     # Extract the page content from the document
     page_content = document.page_content
 
+    if document.is_rss:
+        global today
+        global date_formats
+        feed = feedparser.parse(document.metadata["source"])
+
+            # Dictionary to store entry-wise extracted links
+        all_links = set()
+        date_patterns = [today.strftime(fmt) for fmt in date_formats]
+        date_pattern = re.compile('|'.join(date_patterns))
+
+        for entry in feed.entries:
+            if re.search(date_pattern, json.dumps(entry)):
+                links = entry.get("link", [])
+                if links!=document.metadata["source"]:
+                    all_links.add(links)
+
+        document.metadata["links"] = list(all_links)
+        document.contains_listing = True
+        document.contains_date = True
+        return document
+
     # Define a regex pattern to match month-related text
-    today = datetime(2024, 11, 12)
+    global today
     month_formats = ["%B", "%b", "%m"]
 
     def contains_today_month(text):
@@ -171,6 +194,67 @@ def convert_doc_without_cve(document):
     document.contains_date = True
 
     return document
+
+def convert_doc_with_cve(document):
+    # Extract the page content from the document
+    page_content = document.page_content
+    print(page_content)
+    # Define a regex pattern to match CVE references
+    cve_pattern = re.compile(r'CVE-\d{4}-\d{4,7}', re.IGNORECASE)
+
+    def contains_cve(text):
+        print(text)
+        """Check if the text contains any CVE references."""
+        return bool(cve_pattern.search(text))
+
+    def find_relevant_snippets(elements, seen_elements):
+        """Process elements to find relevant HTML snippets based on anchor tags."""
+        print(elements)
+        snippets = []
+        links = []
+        for elem in elements:
+            current_elem = elem.parent
+            add_snippet = True
+
+            while current_elem:
+                if current_elem in seen_elements:
+                    add_snippet = False
+                    break
+
+                link_tag = current_elem.find("a", href=True)
+                if link_tag:
+                    snippet_html = str(current_elem).strip()
+                    link_href = link_tag['href']
+
+                    if add_snippet:
+                        seen_elements.add(current_elem)
+                        snippets.append(snippet_html)
+                        links.append(link_href)
+                        break
+                current_elem = current_elem.parent
+        return snippets, links
+
+    soup = BeautifulSoup(page_content, 'html.parser')
+
+    elements = soup.find_all(string=lambda text: text and contains_cve(text))
+
+    seen_snippets = set()
+    snippets, links = find_relevant_snippets(elements, seen_snippets)
+
+    document.metadata["links"] = links
+    document.contains_listing = True
+    document.contains_cve = True
+    print(links)
+    return document
+
+
+def custom_html_to_text(documents):
+    html_to_text = html2text.HTML2Text()
+    html_to_text.ignore_links = False
+    html_to_text.ignore_images = True
+    for doc in documents:
+        doc.page_content = html_to_text.handle(doc.page_content)
+    return documents
 
 def transfer_documents(documents):
     html_to_text = html2text.HTML2Text()

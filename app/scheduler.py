@@ -92,7 +92,7 @@ def start_scheduler():
     with app.app_context():
         try:
             oem_websites = OEMWebsite.query.all()
-            documents = [Document(page_content="", metadata={"source": website.website_url, "contains_cve": False, "id": website.id},
+            documents = [Document(page_content="", metadata={"source": website.website_url, "contains_cve": True, "id": website.id},
                                  contains_listing=website.contains_listing,
                                  contains_date=website.contains_date,
                                  is_rss = website.is_rss,
@@ -104,7 +104,7 @@ def start_scheduler():
     scheduler.add_listener(lambda event: job_listener(event, app), EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
     scheduler.add_job(
-        func=lambda: dynamic_scraper(app),
+        func=lambda: dynamic_scraper(app, documents),
         trigger=IntervalTrigger(seconds=10),
         id="scraping_job",
         name="Scraping Job",
