@@ -56,7 +56,7 @@ def send_alerts(id):
             except Exception as e:
                 new_alert.status = 'Failed'
                 print(f"Failed to send email to {user.email}: {e}")
-
+            vuln.email_sent = 1
             db.session.commit()
 
     return jsonify({'message': 'Alerts processed successfully!'}), 200
