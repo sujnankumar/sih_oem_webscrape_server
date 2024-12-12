@@ -1114,9 +1114,10 @@ def take_action_on_report(report_id):
 @api.route('/admin/dashboard', methods=['GET'])
 @jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, ScrapingLogs,Vulnerabilities
-    #get the website name, last_scraped and status
+    from .models import OEMWebsite, ScrapingLogs, Vulnerabilities
+
     try:
+        # Query the website data
         results = db.session.query(
             OEMWebsite.oem_name,
             OEMWebsite.last_scraped,
@@ -1125,14 +1126,33 @@ def admin_dashboard():
         website_count = len(results)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
     if not results:
         return jsonify({'error': 'No results found'}), 404
-    
-    # Build the list with the combined data
-    last_scraped = Vulnerabilities.query.filter_by(scraped_date=Vulnerabilities.scraped_date).desc().first()
 
-    return jsonify({"count":website_count,"last_scraped":f"{last_scraped.scraped_date}"}),200
+    try:
+        # Query the latest scraped date from Vulnerabilities
+        last_scraped = (
+            db.session.query(Vulnerabilities.scraped_date)
+            .order_by(Vulnerabilities.scraped_date.desc())
+            .first()
+        )
+
+        # Handle case where no vulnerabilities are found
+        if not last_scraped:
+            last_scraped_date = None
+        else:
+            last_scraped_date = last_scraped.scraped_date.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        return jsonify({'error': f"Failed to fetch last scraped date: {str(e)}"}), 500
+
+    # Build and return the response
+    return jsonify({
+        "count": website_count,
+        "last_scraped": last_scraped_date
+    }), 200
+
+
         
 @api.route('/get_all_oems', methods=['GET'])
 def get_all_oems():
