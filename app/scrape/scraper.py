@@ -16,6 +16,8 @@ def get_page_content(url):
 
         if response.url:
             res_url = response.url.split('?')[0].split('#')[0]
+            url = url.split('?')[0].split('#')[0]
+            print(res_url, url)
             if res_url != url:
                 return None
 
@@ -48,6 +50,7 @@ def scrape_page(app,documents):
         log_scraping_start(app,doc.metadata["source"],logging)
         print(doc.metadata["source"])
         page_content = get_page_content(doc.metadata["source"])
+        print(page_content)
         if page_content:
             doc.page_content = page_content
             contains_cve = check_for_cve(doc.page_content)

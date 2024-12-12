@@ -4,13 +4,14 @@ class Document:
     """Class for storing a piece of text and associated metadata."""
 
     page_content: str
+    is_rss: bool
     contains_listing: bool
     contains_date: bool
     contains_details: bool
     metadata: dict[str, Any]
     flags: dict[str, bool]  # Store dynamic flags
 
-    def __init__(self, page_content: str, contains_listing: bool = False, contains_date: bool = False, contains_details = False, **kwargs: Any) -> None:
+    def __init__(self, page_content: str, is_rss=True, contains_listing: bool = False, contains_date: bool = False, contains_details = False, **kwargs: Any) -> None:
         """
         Initialize the Document with content, metadata, and additional flags.
 
@@ -24,6 +25,7 @@ class Document:
         self.contains_listing = contains_listing
         self.contains_date = contains_date
         self.contains_details = contains_details
+        self.is_rss = is_rss
         
         # Handle metadata
         metadata = kwargs.get("metadata", {})
