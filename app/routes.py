@@ -232,7 +232,7 @@ def edit_profile():
     if oems:
         try:
             oem_string = ""
-            for oem in oems["oem_names"]:
+            for oem in oems:
                 oem_string += oem + ", "
             user.interested_in_product_categories = oem_string
             db.session.commit()
@@ -241,6 +241,7 @@ def edit_profile():
             return jsonify({'error': str(e)}), 500
     
         return jsonify({'message': 'Profile updated successfully'}), 200
+    
 
 @api.route('/dashboard', methods=['GET'])
 @jwt_required()
