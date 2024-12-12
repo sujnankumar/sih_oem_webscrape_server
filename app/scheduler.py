@@ -105,8 +105,7 @@ def job_listener(event, app: Flask):
                     vulnerability = map_additional_details_to_vulnerability(info, oem_website.id)
                     scoped_session_factory.add(vulnerability)
                     scoped_session_factory.commit()
-                    print("Committed")
-                    send_alerts(website_id, app)
+                    send_alerts(website_id,app)
                     print("The END")
                     logging.info(f"Vulnerability for {oem_website.website_url} added successfully.")
             except IntegrityError as e:

@@ -283,6 +283,8 @@ def add_website():
             contains_date=options.get('contains_date', False),
             is_it=options.get('is_it', False),
             is_official=options.get('is_official', False),
+            is_rss = options.get('is_rss', False),
+            contains_cve = options.get('contains_cve', False)
         )
 
         # Commit the new website to the database
@@ -1112,25 +1114,22 @@ def take_action_on_report(report_id):
         return jsonify({"error": f"An error occurred while taking action on the report: {str(e)}"}), 500
 
 @api.route('/admin/dashboard', methods=['GET'])
-@jwt_required()
 def admin_dashboard():
-    from .models import OEMWebsite, ScrapingLogs, Vulnerabilities
-
+    from .models import OEMWebsite, Vulnerabilities
     try:
         # Query the website data
-        results = db.session.query(OEMWebsite).all()
+        results = OEMWebsite.query.all()
         if not results:
-            return jsonify({'error': 'No results found'}), 404
+            return jsonify({'erro+++--': 'No results found'}), 404
         website_count = len(results)
+        print("HI")
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     try:
         # Query the latest scraped date from Vulnerabilities
-        last_scraped = (
-            db.session.query(Vulnerabilities.scraped_date)
-            .order_by(Vulnerabilities.scraped_date.desc())
-            .first()
-        )
+        print("^Y^")
+        last_scraped =  Vulnerabilities.query.order_by(Vulnerabilities.scraped_date).first()
+        
 
         # Handle case where no vulnerabilities are found
         if not last_scraped:
