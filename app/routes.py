@@ -1120,7 +1120,8 @@ def get_all_oems():
     try:
         oems = OEMWebsite.query.all()
         oem_names = [oem.oem_name for oem in oems]
-        jsonify({"oem_names": oem_names}),200
+        print(oem_names)
+        return jsonify({"oem_names": oem_names}),200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
